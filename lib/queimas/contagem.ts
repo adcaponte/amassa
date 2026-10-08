@@ -275,9 +275,10 @@ export function numerosDasVendasAtivas(vendas: readonly VendaLigada[]): number[]
 }
 
 // 06.4-WR-02/03: as vendas ATIVAS de agora são as que a tela mostrou (`vistas`)? Conjuntos, sem
-// depender da ordem; a cancelada não conta. Diferente → "Recebi agora" e excluir a queima são recusados
-// sob a trava: um novo toque depois de uma resposta perdida vê a venda que já entrou; a exclusão nunca
-// leva o vínculo de uma venda que a confirmação não mostrou.
+// depender da ordem; a cancelada não conta. Diferente → "Recebi agora", "Lançar na Venda" (quick
+// 261008-pmi, auditoria 08/10) e excluir a queima são recusados sob a trava: um novo toque depois de uma
+// resposta perdida vê a venda que já entrou; a exclusão nunca leva o vínculo de uma venda que a
+// confirmação não mostrou.
 export function vendasAtivasMudaram(
   vendas: readonly VendaLigada[],
   vistas: readonly number[],

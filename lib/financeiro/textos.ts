@@ -274,6 +274,16 @@ export const FRASE_ERRO_CORPO =
   "Não deu para carregar o Financeiro. Verifique a internet e tente de novo.";
 export const FRASE_FALHA_AO_SALVAR = "Não deu para salvar. Verifique a internet e tente de novo.";
 
+// Quick 261008-pmi (08/10/2026), auditoria 08/10 — Queimas, aviso 1: a resposta do “Lançar venda” se
+// perdeu (rede). Não dá para afirmar que nada foi gravado — o servidor pode ter lançado a venda e só a
+// resposta ter caído. Com origem (Agenda ou Queimas) tocar de novo é seguro: a Agenda recusa a cobrança
+// já lançada (`vincularCobranca`) e as Queimas recusam pelo retrato das vendas ativas
+// (`vincularQueimaNaVenda`). A Venda manual não tem essa proteção: a frase manda conferir no Caixa.
+export const FRASE_VENDA_SEM_RESPOSTA_COM_ORIGEM =
+  "Não deu para confirmar se a venda foi lançada — a conexão falhou. Pode tocar em “Lançar venda” de novo: se ela já tiver entrado, a tela avisa e não lança outra.";
+export const FRASE_VENDA_SEM_RESPOSTA =
+  "Não deu para confirmar se a venda foi lançada — a conexão falhou. Antes de lançar de novo, confira no Caixa se ela já aparece.";
+
 // "Venda nº 12 lançada · R$ 150,00" — o texto pronto, montado pela PÁGINA a partir do banco
 // (`avisoDaUrl` + `obterDocumentoParaAviso`), nunca guardado no cliente. `totalFormatado` chega
 // já pronto de `formatarReais` (lib/financeiro/formato.ts) — este módulo nunca formata dinheiro

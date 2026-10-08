@@ -1,8 +1,9 @@
-import { test, expect, type Locator, type Page } from "@playwright/test";
+import { test, expect, type Locator, type Page, type Route } from "@playwright/test";
 
 import { FRASE_VENDA_EM_MONTAGEM_GUARDADA, toastLancadoNaVenda } from "@/lib/agenda/textos";
 import { formatarReais } from "@/lib/financeiro/formato";
 import { hrefDaVendaComOrigem, hrefDoCaixa } from "@/lib/financeiro/navegacao";
+import { FRASE_VENDA_SEM_RESPOSTA_COM_ORIGEM, ROTULO_MENOS_UM } from "@/lib/financeiro/textos";
 import {
   DICA_FIM_A_COBRAR,
   FRASE_LINHA_DA_QUEIMA_FALTANDO,
@@ -11,6 +12,7 @@ import {
   fraseAcimaDoQueFaltaNaVenda,
   fraseOrigemQueimaTudoLancado,
   fraseSemPrecoDaQueima,
+  fraseVendasMudaramNaVenda,
   toastLancadoNaVendaPago,
 } from "@/lib/queimas/textos";
 
@@ -407,5 +409,68 @@ test.describe("cobrança da queima — venda: bordas", () => {
     await expect(page.getByTestId("a-cobrar-dica")).toContainText(
       "Se as peças são de pessoas diferentes, você divide lá.",
     );
+  });
+
+  // Quick 261008-pmi (08/10/2026), auditoria 08/10 — Queimas, aviso 1 (molde do WR-02 de
+  // `queimas-cobranca.spec.ts`): o servidor grava a venda e a RESPOSTA do “Lançar venda” se perde. O painel
+  // não afirma que nada foi gravado; tocar de novo, da mesma Venda (o retrato continua o da abertura), é
+  // recusado citando a venda — nunca uma segunda venda das mesmas peças — e o painel remonta com o que falta.
+  test("(auditoria 08/10) a resposta do Lançar venda se perde — a tela diz o que fazer, e o segundo toque é recusado citando a venda, sem criar outra", async ({
+    page,
+  }) => {
+    let trava: TravaDosPrecosDasQueimas | null = null;
+    try {
+      await fazerLogin(page);
+      trava = await travarPrecosDasQueimas({ P: 1100, M: 2300, G: 3700 });
+      const queimaId = await semearQueimaComExternas(`[e2e] venda resposta perdida ${sufixo()}`, { p: 5 });
+      await page.goto(hrefDaVendaComOrigem({ tipo: "queima", id: queimaId }));
+      await expect(page.getByTestId("faixa-das-queimas")).toBeVisible();
+
+      const linhaP = linhaDoCarrinho(page, trava.nomes.P);
+      await expect(linhaP.getByTestId("venda-linha-quantidade")).toHaveText("5");
+      for (let vez = 0; vez < 3; vez += 1) {
+        await linhaP.getByRole("button", { name: ROTULO_MENOS_UM }).click();
+      }
+      await expect(linhaP.getByTestId("venda-linha-quantidade")).toHaveText("2");
+
+      // Só a PRIMEIRA chamada de Server Action: o servidor recebe e grava (`route.fetch`), e a resposta
+      // nunca chega ao navegador (`abort`).
+      let perdida = false;
+      const perderAResposta = async (route: Route) => {
+        const pedido = route.request();
+        if (!perdida && pedido.method() === "POST" && pedido.headers()["next-action"] !== undefined) {
+          perdida = true;
+          await route.fetch();
+          await route.abort("failed");
+          return;
+        }
+        await route.fallback();
+      };
+      await page.route("**/*", perderAResposta);
+      await page.getByRole("button", { name: "Lançar venda" }).click();
+
+      await expect(
+        page.getByRole("alert").filter({ hasText: FRASE_VENDA_SEM_RESPOSTA_COM_ORIGEM }),
+      ).toBeVisible({ timeout: 10000 });
+      expect(perdida).toBe(true);
+      await expect(page).toHaveURL(/\/gestao\/financeiro\?aba=venda&origem=queima%3A/);
+      await expect.poll(async () => (await lerVendasDaQueima(queimaId)).length, { timeout: 10000 }).toBe(1);
+      const [gravada] = await lerVendasDaQueima(queimaId);
+      expect(gravada.quantidadeP).toBe(2);
+
+      await page.unroute("**/*", perderAResposta);
+      await page.getByRole("button", { name: "Lançar venda" }).click();
+      await expect(page.getByText(fraseVendasMudaramNaVenda([gravada.numero]))).toBeVisible({ timeout: 10000 });
+      const vendas = await lerVendasDaQueima(queimaId);
+      expect(vendas).toHaveLength(1);
+      expect(vendas[0].quantidadeP).toBe(2);
+      // A página foi relida e o painel remontou com o que falta AGORA.
+      await expect(linhaDoCarrinho(page, trava.nomes.P).getByTestId("venda-linha-quantidade")).toHaveText("3", {
+        timeout: 10000,
+      });
+      await expect(page).toHaveURL(/\/gestao\/financeiro\?aba=venda&origem=queima%3A/);
+    } finally {
+      await trava?.soltar();
+    }
   });
 });

@@ -141,6 +141,26 @@ export const esquemaCorrecao = z.object({
 
 export type PedidoDeCorrecao = z.infer<typeof esquemaCorrecao>;
 
+// Quick 261008-pmi (08/10/2026), auditoria 08/10 — Queimas, aviso 1: o retrato das vendas ativas que a
+// Venda aberta pelas Queimas leu. Ausente (uma aba aberta antes da atualização da plataforma) ou fora de
+// forma → esta frase; a conferência sob a trava nunca é pulada.
+export const FRASE_VENDA_DESATUALIZADA =
+  "Esta Venda está desatualizada — volte às Queimas e toque em “Lançar na Venda” de novo.";
+
+// Os números das vendas ATIVAS da queima que a página leu ao abrir a Venda — REDECLARADO aqui (nunca
+// importado de `@/lib/queimas`, D-15 do projeto), no molde do `vendasVistas` de `lib/queimas/esquemas.ts`.
+// Forjar só causa recusa ou equivale a ter visto o estado atual (T-pmi-01); o teto de 500 só fecha o
+// tamanho.
+const esquemaVendasVistas = z
+  .array(
+    z
+      .number({ error: FRASE_VENDA_DESATUALIZADA })
+      .int({ error: FRASE_VENDA_DESATUALIZADA })
+      .positive({ error: FRASE_VENDA_DESATUALIZADA }),
+    { error: FRASE_VENDA_DESATUALIZADA },
+  )
+  .max(500, { error: FRASE_VENDA_DESATUALIZADA });
+
 // Formato de entrada CRU da venda — antes da conversão de texto para centavos.
 export const esquemaVendaEntrada = z.object({
   data: esquemaDataCivil,
@@ -154,13 +174,15 @@ export const esquemaVendaEntrada = z.object({
     .min(1, "Adicione pelo menos uma parcela.")
     .max(12, "No máximo 12 parcelas."),
   desconto: esquemaDescontoEntrada.optional(),
-  // A Venda aberta pela Agenda (Fase 05, plano 12 — AGE-15): o texto de `?origem=`
-  // ("{mensalidade|inscricao|uso_livre}:{uuid}"), validado por `origemDaUrl` no `transform` abaixo.
-  // Só diz QUAL cobrança: pessoa, cliente e a descrição da linha de origem são decididos no servidor,
-  // sob a trava da cobrança (`lancarVenda` → `vincularCobranca`). Ausente = a Venda manual de sempre.
+  // A Venda aberta pela Agenda (Fase 05, plano 12 — AGE-15) ou pelas Queimas (Fase 06.4, plano 05): o
+  // texto de `?origem=` ("{mensalidade|inscricao|uso_livre|queima}:{uuid}"), validado por `origemDaUrl`
+  // no `transform` abaixo. Só diz QUAL cobrança ou queima: o resto é decidido no servidor, sob a trava
+  // (`lancarVenda` → `vincularCobranca` / `vincularQueimaNaVenda`). Ausente = a Venda manual de sempre.
   origem: z.string().optional(),
   // A original que esta venda corrige (Fase 06.5, plano 16). Exclusiva com `origem` (abaixo).
   correcao: esquemaCorrecao.optional(),
+  // Quick 261008-pmi: OBRIGATÓRIO com origem `queima`, PROIBIDO em qualquer outro caso (abaixo).
+  vendasVistas: esquemaVendasVistas.optional(),
 });
 
 // Frase da origem que não passa em `origemDaUrl` (texto adulterado — a tela nunca manda isso).
@@ -313,12 +335,23 @@ export const esquemaVenda = esquemaVendaEntrada.transform((dados, ctx) => {
     ctx.addIssue({ code: "custom", message: FRASE_CORRECAO_COM_ORIGEM, path: ["correcao"] });
   }
 
+  // Quick 261008-pmi (08/10/2026), auditoria 08/10 — Queimas, aviso 1: a Venda das Queimas leva o retrato
+  // das vendas ativas que a página leu; sem ele, a recusa da tela desatualizada (nunca pular a conferência).
+  // Fora da origem `queima` (manual, Agenda, correção) a tela nunca o manda — presente é pedido forjado.
+  const daQueima = origem !== null && origem.tipo === "queima" && dados.correcao === undefined;
+  const retratoErrado =
+    (daQueima && dados.vendasVistas === undefined) || (!daQueima && dados.vendasVistas !== undefined);
+  if (retratoErrado) {
+    ctx.addIssue({ code: "custom", message: FRASE_VENDA_DESATUALIZADA, path: ["vendasVistas"] });
+  }
+
   if (
     linhas.some((linha) => linha === null) ||
     parcelas.some((parcela) => parcela === null) ||
     (dados.desconto && !desconto) ||
     (dados.origem !== undefined && !origem) ||
-    correcaoComOrigem
+    correcaoComOrigem ||
+    retratoErrado
   ) {
     return z.NEVER;
   }
@@ -331,6 +364,8 @@ export const esquemaVenda = esquemaVendaEntrada.transform((dados, ctx) => {
     desconto,
     origem,
     correcao: dados.correcao ?? null,
+    // `null` = a Venda manual ou a da Agenda (sem retrato).
+    vendasVistas: dados.vendasVistas ?? null,
   };
 });
 

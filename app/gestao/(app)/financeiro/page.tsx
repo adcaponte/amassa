@@ -447,6 +447,7 @@ export default async function PaginaFinanceiro({
             nome: vendaDaOrigem.venda.clienteNome,
             vencimento: vendaDaOrigem.venda.vencimento,
             itensDaOrigem: [vendaDaOrigem.venda.itemDoSistemaId],
+            vendasVistas: null,
           }
         : vendaDaOrigem.modulo === "queimas" && vendaDaOrigem.venda.situacao === "livre"
           ? {
@@ -456,6 +457,9 @@ export default async function PaginaFinanceiro({
               nome: null,
               vencimento: vendaDaOrigem.venda.vencimento,
               itensDaOrigem: vendaDaOrigem.venda.itensDaOrigem,
+              // Quick 261008-pmi (auditoria 08/10 — Queimas, aviso 1): o retrato das vendas ativas que
+              // esta leitura viu; volta a `lancarVenda`.
+              vendasVistas: vendaDaOrigem.venda.vendasVistas,
             }
           : null
       : null;
@@ -779,12 +783,17 @@ export default async function PaginaFinanceiro({
       ) : (
         <PainelVenda
           // A `key` separa a Venda manual da Venda de uma origem (e uma origem da outra): o painel monta de
-          // novo e começa do carrinho certo, nunca do estado da tela anterior.
+          // novo e começa do carrinho certo, nunca do estado da tela anterior. Nas Queimas ela leva também as
+          // vendas ativas que a página leu (quick 261008-pmi): quando a recusa de tela velha relê a página e
+          // ela vê outras vendas, o painel remonta com o carrinho do que falta AGORA e o retrato novo. A da
+          // Agenda e a manual ficam como estavam.
           key={
             correcaoNoPainel
               ? `corrige-${correcaoNoPainel.documentoId}`
               : origemNoPainel
-                ? origemNoPainel.origem
+                ? origemNoPainel.vendasVistas !== null
+                  ? `${origemNoPainel.origem}:${origemNoPainel.vendasVistas.join(",")}`
+                  : origemNoPainel.origem
                 : "manual"
           }
           hoje={hoje}

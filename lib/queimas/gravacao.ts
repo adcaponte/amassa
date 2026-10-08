@@ -27,6 +27,9 @@
 // que a folha abriu (`esperada`), as vendas ativas que a folha ou a confirmação mostraram
 // (`vendasVistas`) — e as funções abaixo recusam, sob a trava, quando isso mudou: `RecusaDasQueimas`
 // com a frase humana e `telaMudou`, e a tela é relida. Nada é gravado numa recusa.
+// Quick 261008-pmi (08/10/2026), auditoria 08/10 — Queimas, aviso 1: o "Lançar na Venda" também
+// (`vincularQueimaNaVenda`): a Venda aberta pelas Queimas leva as vendas ativas que a página leu, e um
+// segundo "Lançar venda" depois de uma resposta perdida é recusado em vez de gravar outra venda.
 //
 // CR-01: a trava é tomada numa instrução e a leitura é REFEITA noutra (`travarEReler`); as vendas
 // ligadas são lidas DEPOIS da trava, noutra instrução — sob READ COMMITTED, a instrução que esperou a
@@ -82,6 +85,7 @@ import {
   fraseSoFaltam,
   fraseTudoJaLancado,
   fraseVendasMudaram,
+  fraseVendasMudaramNaVenda,
   FRASE_LINHA_DA_QUEIMA_FALTANDO,
   FRASE_ORIGEM_QUEIMA_NAO_ACHADA,
   FRASE_PESSOA_SUMIU,
@@ -509,7 +513,9 @@ export async function excluirQueimaNaTransacao(
 // (`faltaCobrar`, `cabeNoQueFalta`, `quantidadesDasLinhas`): somados, os dois caminhos nunca passam das
 // externas em nenhum tamanho. Recusas (nada gravado): queima/contagem sumida ou sem externas →
 // `FRASE_ORIGEM_QUEIMA_NAO_ACHADA`; nada falta → `fraseOrigemQueimaTudoLancado` (as vendas ativas);
-// nenhuma linha dos três itens → `FRASE_LINHA_DA_QUEIMA_FALTANDO`; algum tamanho acima do que falta →
+// as vendas ativas de agora não são as que a Venda viu ao abrir (`vendasVistas`) →
+// `fraseVendasMudaramNaVenda` com `telaMudou` (quick 261008-pmi, auditoria 08/10 aviso 1); nenhuma
+// linha dos três itens → `FRASE_LINHA_DA_QUEIMA_FALTANDO`; algum tamanho acima do que falta →
 // `fraseAcimaDoQueFaltaNaVenda` (o que falta agora).
 export type VinculoDaQueimaNaVenda = {
   // O id de cada um dos três itens “Queima externa P/M/G”, lidos pela chave depois da trava.
@@ -525,6 +531,8 @@ export type VinculoDaQueimaNaVenda = {
 export async function vincularQueimaNaVenda(
   tx: TransacaoDoBanco,
   queimaId: string,
+  // As vendas ATIVAS da queima que a página da Venda leu ao abrir (quick 261008-pmi).
+  vendasVistas: readonly number[],
 ): Promise<VinculoDaQueimaNaVenda> {
   const travada = await travarContagem(tx, queimaId);
   if (travada === null || travada.contagem === null) {
@@ -541,6 +549,16 @@ export async function vincularQueimaNaVenda(
         travada.vendas.filter((venda) => !venda.cancelada).map((venda) => venda.numero),
       ),
     );
+  }
+  // Quick 261008-pmi (08/10/2026), auditoria 08/10 — Queimas, aviso 1. A mesma conferência do "Recebi
+  // agora" (`cobrarQueimaNaTransacao`), no mesmo lugar: DEPOIS de "nada falta" e ANTES de conferir o que
+  // cabe. A queima ganhou (ou perdeu) venda ativa desde que esta Venda abriu? Um segundo "Lançar venda"
+  // depois de uma resposta perdida vê a venda que o primeiro gravou e é recusado — nunca uma segunda
+  // venda das mesmas peças. A Venda não relê a página numa falha de rede, então o retrato é o da abertura.
+  if (vendasAtivasMudaram(travada.vendas, vendasVistas)) {
+    const vistas = new Set(vendasVistas);
+    const novas = numerosDasVendasAtivas(travada.vendas).filter((numero) => !vistas.has(numero));
+    throw new RecusaDasQueimas(fraseVendasMudaramNaVenda(novas), { telaMudou: true });
   }
 
   const itens = await obterItensDasQueimas(tx);

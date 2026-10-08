@@ -1,6 +1,8 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 import { DICA_PESSOA_TRAVADA, ROTULO_PESSOA_DA_AGENDA } from "@/lib/agenda/textos";
 import type { LinhaDaVendaDaAgenda } from "@/lib/agenda/receber";
@@ -30,8 +32,9 @@ import {
 import { CHAVE_RASCUNHO_VENDA, lerRascunho, serializarRascunho, type LinhaDoRascunho } from "@/lib/financeiro/rascunho";
 import { FRASE_LINHA_DA_QUEIMA_FALTANDO } from "@/lib/queimas/textos";
 import {
-  FRASE_FALHA_AO_SALVAR,
   FRASE_VAZIO_VENDA,
+  FRASE_VENDA_SEM_RESPOSTA,
+  FRASE_VENDA_SEM_RESPOSTA_COM_ORIGEM,
   PLACEHOLDER_PESSOA_VENDA,
   ROTULO_AREA,
   ROTULO_DATA,
@@ -112,6 +115,11 @@ export type OrigemNoPainel = {
   vencimento: string;
   // Agenda: `[itemDoSistemaId]` — a linha de origem é a primeira com este item. Queimas: os três itens.
   itensDaOrigem: string[];
+  // Quick 261008-pmi (08/10/2026), auditoria 08/10 — Queimas, aviso 1. Queimas: os números das vendas
+  // ATIVAS da queima que a página leu (`queimaParaVenda`) — devolvidos a `lancarVenda`, que recusa sob a
+  // trava se as de agora são outras. Congelados: só uma releitura da página (que remonta o painel pela
+  // `key`) os troca. Agenda: `null` (a cobrança já recusa a segunda venda sozinha).
+  vendasVistas: readonly number[] | null;
 };
 
 // O carrinho com que a Venda da origem começa: a pessoa (travada na Agenda; vazia e livre nas Queimas) e
@@ -266,6 +274,7 @@ export function PainelVenda({
   rascunhoInicial = null,
   correcao = null,
 }: PainelVendaProps) {
+  const router = useRouter();
   // A Venda da origem começa DIRETO do carrinho da origem (calculado já na renderização do servidor —
   // nada de piscar o carrinho em montagem antes, Pitfall 10), com o à vista EM ABERTO vencendo no dia da
   // cobrança (UI-D26). Agenda: a pessoa travada. Queimas: a pessoa vazia e livre (UI-D13).
@@ -849,6 +858,10 @@ export function PainelVenda({
         // Só QUAL origem: na Agenda o servidor sobrescreve pessoa, cliente e a descrição da linha de origem;
         // nas Queimas ele relê o que falta sob a trava e tira as quantidades do vínculo destas linhas.
         ...(origem !== null && comOrigem ? { origem: origem.origem } : {}),
+        // Quick 261008-pmi: nas Queimas, o retrato das vendas ativas que a página leu (uma cópia).
+        ...(origem !== null && comOrigem && origem.vendasVistas !== null
+          ? { vendasVistas: [...origem.vendasVistas] }
+          : {}),
         // A correção (plano 17): só o id e a versão que a página leu — o servidor trava a original, reconfere
         // e a cancela na mesma transação em que lança esta (plano 16). Depois de “Lançar como venda nova”
         // (plano 18), nada de `correcao`: é uma venda comum.
@@ -857,13 +870,21 @@ export function PainelVenda({
           : {}),
       });
     } catch {
-      // A chamada nem chegou (internet, servidor fora): nada foi gravado. Na correção, a frase diz que a
-      // original continua valendo (plano 18, `data-motivo="rede"`); fora dela, a frase de sempre.
+      // A conexão falhou — e não dá para saber se o servidor gravou: a chamada pode ter chegado e lançado
+      // a venda, e só a resposta ter se perdido (quick 261008-pmi, auditoria 08/10 — Queimas, aviso 1).
+      // Por isso a frase nunca afirma que nada foi gravado. Na correção, o ramo de sempre (plano 18,
+      // `data-motivo="rede"`; pendência P2 da quick 261008-pmi). Com origem, tocar de novo é seguro: a Agenda
+      // recusa a cobrança já lançada e as Queimas recusam pelo retrato das vendas ativas — e é por isso que
+      // aqui o painel NÃO relê a página: o retrato precisa continuar o da abertura para o segundo toque ser
+      // recusado. A Venda manual não tem essa proteção: a frase manda conferir no Caixa antes de lançar de
+      // novo (pendência P1).
       setEnviando(false);
       if (correcao !== null && vinculada) {
         setRecusa({ motivo: "rede", frase: fraseCorrecaoSemRede("venda", correcao.numero), tentativa });
+      } else if (comOrigem) {
+        setErro(FRASE_VENDA_SEM_RESPOSTA_COM_ORIGEM);
       } else {
-        setErro(FRASE_FALHA_AO_SALVAR);
+        setErro(FRASE_VENDA_SEM_RESPOSTA);
       }
       return;
     }
@@ -871,6 +892,15 @@ export function PainelVenda({
     setEnviando(false);
 
     if (!resposta.ok) {
+      // Quick 261008-pmi: a Venda das Queimas estava velha — a queima ganhou (ou perdeu) venda ativa desde
+      // que a página abriu, talvez pelo próprio toque anterior cuja resposta se perdeu. É o ÚNICO ponto em
+      // que o painel relê a página: o toast fica com a frase, e a `key` da página (que inclui as vendas
+      // vistas) remonta o painel com o carrinho do que falta AGORA e o retrato novo.
+      if (resposta.telaMudou) {
+        toast.error(resposta.erro);
+        router.refresh();
+        return;
+      }
       // A recusa da correção leva o motivo (plano 16): a tela decide a frase e o caminho só por ele.
       if (vinculada && resposta.motivoDaCorrecao) {
         setRecusa({ motivo: resposta.motivoDaCorrecao, frase: resposta.erro, tentativa });

@@ -31,6 +31,7 @@ import {
   faltaCobrar,
   janelaSemContagem,
   lancadoAtivo,
+  numerosDasVendasAtivas,
   oQueOFornoQueimou,
   precosDosItens,
   queimasPorTipo,
@@ -836,6 +837,10 @@ export type VendaDaQueima =
       linhas: LinhaDaVendaDaAgenda[];
       // Os ids dos três itens “Queima externa P/M/G”: toda linha deles na venda é uma linha da queima.
       itensDaOrigem: string[];
+      // Quick 261008-pmi (08/10/2026), auditoria 08/10 — Queimas, aviso 1: os números das vendas ATIVAS
+      // da queima que esta leitura viu — o retrato que a Venda leva de volta em `lancarVenda`
+      // (`vendasVistas`). A página o congela no painel: só uma releitura da página o troca.
+      vendasVistas: number[];
     }
   | { situacao: "tudo_lancado"; numeros: number[] }
   | { situacao: "nao_achada" }
@@ -914,6 +919,7 @@ export async function queimaParaVenda(queimaId: string, hoje: string): Promise<V
     vencimento: hoje,
     linhas,
     itensDaOrigem: [itens.P.id, itens.M.id, itens.G.id],
+    vendasVistas: numerosDasVendasAtivas(vendas),
   };
 }
 

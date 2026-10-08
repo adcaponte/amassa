@@ -598,6 +598,17 @@ export function fraseVendasMudaram(novas: readonly number[]): string {
   return `Esta queima ${ganhou} desde que a folha abriu — se foi o seu toque anterior, ele já valeu. A tela foi atualizada: confira o que falta antes de cobrar de novo.`;
 }
 
+// Quick 261008-pmi (08/10/2026), auditoria 08/10 — Queimas, aviso 1: a mesma recusa, para a Venda aberta
+// por "Lançar na Venda". A queima ganhou venda desde que a Venda abriu — talvez o próprio "Lançar venda"
+// anterior, cuja resposta se perdeu. `novas` = os números das vendas ativas que a Venda não tinha visto.
+export function fraseVendasMudaramNaVenda(novas: readonly number[]): string {
+  if (novas.length === 0) {
+    return "As vendas desta queima mudaram desde que esta Venda abriu — se foi o seu toque anterior, ele já valeu. A tela foi atualizada: confira o que falta antes de lançar de novo.";
+  }
+  const ganhou = novas.length === 1 ? `ganhou a ${nomeDasVendas(novas)}` : `ganhou as ${nomeDasVendas(novas)}`;
+  return `Esta queima ${ganhou} desde que esta Venda abriu — se foi o seu toque anterior, ele já valeu. A tela foi atualizada: confira o que falta antes de lançar de novo.`;
+}
+
 // 06.4-WR-02: a resposta do "Recebi agora" se perdeu (rede). Não dá para afirmar "nenhuma venda foi
 // criada" — o servidor pode ter gravado. Tocar de novo é seguro: as vendas que a folha viu ao abrir ficam
 // congeladas, e o servidor recusa se uma venda nova já tiver entrado.

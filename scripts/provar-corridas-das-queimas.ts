@@ -32,6 +32,14 @@
 // WR-01). Casos novos: (6b) corrigir/apagar com retrato velho, (11) excluir a queima sob corrida e (12) o
 // "Recebi agora" repetido depois de uma resposta perdida. A invariante da D-07 (Σ ativa ≤ externas, por
 // tamanho) continua afirmada em todos.
+//
+// Quick 261008-pmi (08/10/2026), auditoria 08/10 — Queimas, aviso 1: o "Lançar na Venda" também manda o
+// retrato (as vendas ativas que a página da Venda leu) e é recusado sob a trava quando ele mudou. Mudaram
+// de sentido: (9a) — o "Lançar" de uma Venda aberta antes do "Recebi" agora é recusado pela TELA VELHA
+// (cita a venda do Recebi) em vez de "só faltam 1 P"; relido (`[nº]`), ele cai em "só faltam 1 P" (a
+// cobertura de `cabeNoQueFalta` continua); (10) — o "Lançar" sobreposto agora é RECUSADO (antes passava) e
+// só passa com a tela relida, somando 3 P em dois vínculos. Caso novo: (13) o "Lançar na Venda" repetido
+// depois de uma resposta perdida.
 import { randomUUID } from "node:crypto";
 
 import { Client } from "pg";
@@ -156,7 +164,8 @@ function cobrar(tx: TransacaoDoBanco, queimaId: string, quantidades: Quantidades
 }
 
 // A metade das Queimas do "Lançar na Venda" (`lancarVenda` em lib/financeiro/acoes.ts, sem a sessão e sem a
-// validação do formulário): trava e confere a queima (`vincularQueimaNaVenda`), monta as linhas da venda com
+// validação do formulário): trava e confere a queima (`vincularQueimaNaVenda`, com as `vistas` — as vendas
+// ativas que a página da Venda leu, quick 261008-pmi), monta as linhas da venda com
 // os itens do Catálogo (as quantidades pedidas, ao preço de prova), tira delas as quantidades do vínculo
 // (`conferir` — recusa acima do que falta), grava a venda com o MESMO escritor e grava o vínculo — na mesma
 // transação. A venda nasce como a da tela: à vista EM ABERTO, hoje, sem pessoa.
@@ -164,8 +173,9 @@ async function lancar(
   tx: TransacaoDoBanco,
   queimaId: string,
   quantidades: Quantidades,
+  vistas: readonly number[],
 ): Promise<{ documentoId: string; numero: number }> {
-  const vinculo = await vincularQueimaNaVenda(tx, queimaId);
+  const vinculo = await vincularQueimaNaVenda(tx, queimaId, vistas);
   const itens = await obterItensDasQueimas(tx);
   const linhas: LinhaDoPedidoDeVenda[] = [];
   for (const [tamanho, chave] of [
@@ -539,14 +549,16 @@ async function provarCanceladaLiberaEIdempotencia(conexao: Client): Promise<void
 
 // (9) "Recebi agora" × "Lançar na Venda" pedindo a MESMA peça, nos dois sentidos: 3 P contadas, os dois
 // pedem 2 P. Quem chega depois espera a trava da queima, relê e recusa; Σ ativa de P = 2, um vínculo.
-// (9a) o "Recebi" trava primeiro (o "Lançar" recusa com o que falta); (9b) o "Lançar" trava primeiro —
-// desde o quick 261005-2yu, o "Recebi" de uma folha aberta antes da venda nova recusa pela TELA VELHA
-// (cita a venda), não mais por "só faltam 1 P". O "Lançar na Venda" não manda retrato (fora dos avisos).
+// (9a) o "Recebi" trava primeiro — desde o quick 261008-pmi, o "Lançar" de uma Venda aberta antes dele
+// (`[]`) recusa pela TELA VELHA (cita a venda do Recebi), não mais por "só faltam 1 P"; relido (`[nº]`),
+// ele cai em "só faltam 1 P" (a recusa de `cabeNoQueFalta` continua coberta). (9b) o "Lançar" trava
+// primeiro (com `[]`, nenhuma venda ainda — passa como antes) — desde o quick 261005-2yu, o "Recebi" de uma
+// folha aberta antes da venda nova recusa pela TELA VELHA (cita a venda), não mais por "só faltam 1 P".
 async function provarRecebiXLancarMesmaPeca(conexao: Client, observador: Client): Promise<void> {
   console.log("    (9a) “Recebi agora” × “Lançar na Venda” na mesma peça (Recebi primeiro, 2 P e 2 P de 3 P)...");
   let queimaId = await semearQueima(conexao, so(3));
   let primeira = await primeiraTravaEPara(queimaId, (tx) => cobrar(tx, queimaId, so(2)));
-  const lancarDepois = semRejeicaoSolta(db.transaction((tx) => lancar(tx, queimaId, so(2))));
+  const lancarDepois = semRejeicaoSolta(db.transaction((tx) => lancar(tx, queimaId, so(2), [])));
   await esperarAlguemNaTrava(observador, "(9a)");
   primeira.soltar();
   let [a, b] = await Promise.all([primeira.desfecho, lancarDepois]);
@@ -558,15 +570,25 @@ async function provarRecebiXLancarMesmaPeca(conexao: Client, observador: Client)
     "(9a): o “Lançar na Venda” sobreposto deveria ser RECUSADO — ele passou e a soma lançada passou das externas.",
   );
   afirmar(
-    frase(b) === "Desta queima só faltam 1 P para cobrar — diminua as linhas de queima externa e lance de novo.",
-    `(9a): a recusa deveria dizer o que falta (1 P), disse “${frase(b)}”.`,
+    telaMudou(b) && a.ok && frase(b).includes(`venda nº ${a.valor.numero}`) && frase(b).includes("desde que esta Venda abriu"),
+    `(9a): a recusa deveria ser de tela velha citando a venda do Recebi, disse “${frase(b)}”.`,
   );
   let lista = await vinculos(conexao, queimaId);
   afirmar(lista.length === 1 && somaAtiva(lista).p === 2, `(9a): Σ ativa de P deveria ser 2 num vínculo, veio ${JSON.stringify(lista)}.`);
+  // A Venda relida (com a venda do Recebi) pedindo 2 P de novo: agora a recusa é a do que falta.
+  const numeroDoRecebi = a.valor.numero;
+  const relida9a = await semRejeicaoSolta(db.transaction((tx) => lancar(tx, queimaId, so(2), [numeroDoRecebi])));
+  guardarVenda(relida9a);
+  afirmar(
+    frase(relida9a) === "Desta queima só faltam 1 P para cobrar — diminua as linhas de queima externa e lance de novo.",
+    `(9a): relida, a recusa deveria dizer o que falta (1 P), disse “${frase(relida9a) || "passou"}”.`,
+  );
+  lista = await vinculos(conexao, queimaId);
+  afirmar(lista.length === 1 && somaAtiva(lista).p === 2, `(9a): Σ ativa de P deveria continuar 2 num vínculo, veio ${JSON.stringify(lista)}.`);
 
   console.log("    (9b) “Lançar na Venda” × “Recebi agora” na mesma peça (Lançar primeiro)...");
   queimaId = await semearQueima(conexao, so(3));
-  primeira = await primeiraTravaEPara(queimaId, (tx) => lancar(tx, queimaId, so(2)));
+  primeira = await primeiraTravaEPara(queimaId, (tx) => lancar(tx, queimaId, so(2), []));
   const recebiDepois = semRejeicaoSolta(db.transaction((tx) => cobrar(tx, queimaId, so(2))));
   await esperarAlguemNaTrava(observador, "(9b)");
   primeira.soltar();
@@ -582,19 +604,27 @@ async function provarRecebiXLancarMesmaPeca(conexao: Client, observador: Client)
   afirmar(lista.length === 1 && somaAtiva(lista).p === 2, `(9b): Σ ativa de P deveria ser 2 num vínculo, veio ${JSON.stringify(lista)}.`);
 }
 
-// (10) "Recebi agora" 1 P × "Lançar na Venda" 2 P de 3 P, sobrepostos: as partes cabem juntas — os dois
-// passam, dois vínculos, e a Σ ativa de P é exatamente 3 (= externas).
+// (10) "Recebi agora" 1 P × "Lançar na Venda" 2 P de 3 P, sobrepostos: as partes cabem juntas. Desde o quick
+// 261008-pmi, o "Lançar" de uma Venda aberta antes do "Recebi" (`[]`) é RECUSADO pela tela velha (antes
+// passava); relido (`[nº do Recebi]`), passa — dois vínculos, e a Σ ativa de P é exatamente 3 (= externas).
 async function provarRecebiXLancarPartesQueCabem(conexao: Client, observador: Client): Promise<void> {
   console.log("    (10) “Recebi agora” 1 P × “Lançar na Venda” 2 P de 3 P (cabem juntas)...");
   const queimaId = await semearQueima(conexao, so(3));
   const primeira = await primeiraTravaEPara(queimaId, (tx) => cobrar(tx, queimaId, so(1)));
-  const segunda = semRejeicaoSolta(db.transaction((tx) => lancar(tx, queimaId, so(2))));
+  const segunda = semRejeicaoSolta(db.transaction((tx) => lancar(tx, queimaId, so(2), [])));
   await esperarAlguemNaTrava(observador, "(10)");
   primeira.soltar();
   const [a, b] = await Promise.all([primeira.desfecho, segunda]);
   guardarVenda(a);
   guardarVenda(b);
-  afirmar(a.ok && b.ok, `(10): os dois deveriam passar — ${String(!a.ok ? a.erro : !b.ok ? b.erro : "")}`);
+  afirmar(a.ok, `(10): o “Recebi agora” deveria gravar — ${String(!a.ok && a.erro)}`);
+  afirmar(
+    telaMudou(b) && frase(b).includes(`venda nº ${a.valor.numero}`),
+    `(10): o “Lançar” sobreposto (Venda aberta antes) deveria ser recusado pela tela velha, veio “${frase(b) || "passou"}”.`,
+  );
+  const relida = await semRejeicaoSolta(db.transaction((tx) => lancar(tx, queimaId, so(2), [a.valor.numero])));
+  guardarVenda(relida);
+  afirmar(relida.ok, `(10): relida, a Venda deveria passar — ${String(!relida.ok && relida.erro)}`);
   const lista = await vinculos(conexao, queimaId);
   afirmar(
     lista.length === 2 && somaAtiva(lista).p === 3,
@@ -661,6 +691,32 @@ async function provarRecebiRepetido(conexao: Client): Promise<void> {
   afirmar(relida.ok, `(12): com a folha relida, cobrar 2 P de novo deveria passar — ${String(!relida.ok && relida.erro)}`);
   lista = await vinculos(conexao, queimaId);
   afirmar(somaAtiva(lista).p === 4 && lista.length === 2, `(12): Σ ativa de P deveria ser 4 em dois vínculos, veio ${JSON.stringify(lista)}.`);
+}
+
+// (13) "Lançar na Venda" REPETIDO depois de uma resposta perdida (quick 261008-pmi, auditoria 08/10 —
+// Queimas, aviso 1), molde do (12): 5 P. A Venda abriu sem venda (`[]`) e não relê a página numa falha de
+// rede. O primeiro "Lançar venda" grava a nº N (a resposta se perde); o segundo, da MESMA Venda (`[]`), é
+// RECUSADO citando o nº N — nunca uma segunda venda das mesmas peças; Σ ativa P = 2. Relida (`[N]`), lança 2
+// P de novo de propósito: Σ = 4 em dois vínculos.
+async function provarLancarRepetido(conexao: Client): Promise<void> {
+  console.log("    (13) “Lançar na Venda” repetido da mesma Venda depois de uma resposta perdida...");
+  const queimaId = await semearQueima(conexao, so(5));
+  const primeiro = await semRejeicaoSolta(db.transaction((tx) => lancar(tx, queimaId, so(2), [])));
+  guardarVenda(primeiro);
+  afirmar(primeiro.ok, `(13): o primeiro “Lançar venda” deveria gravar — ${String(!primeiro.ok && primeiro.erro)}`);
+  const repetido = await semRejeicaoSolta(db.transaction((tx) => lancar(tx, queimaId, so(2), [])));
+  guardarVenda(repetido);
+  afirmar(
+    telaMudou(repetido) && frase(repetido).includes(`venda nº ${primeiro.valor.numero}`),
+    `(13): o “Lançar venda” repetido deveria ser recusado citando a venda nº ${primeiro.valor.numero}, veio “${frase(repetido) || "passou"}”.`,
+  );
+  let lista = await vinculos(conexao, queimaId);
+  afirmar(somaAtiva(lista).p === 2 && lista.length === 1, `(13): Σ ativa de P deveria ser 2 num vínculo, veio ${JSON.stringify(lista)}.`);
+  const relida = await semRejeicaoSolta(db.transaction((tx) => lancar(tx, queimaId, so(2), [primeiro.valor.numero])));
+  guardarVenda(relida);
+  afirmar(relida.ok, `(13): com a Venda relida, lançar 2 P de novo deveria passar — ${String(!relida.ok && relida.erro)}`);
+  lista = await vinculos(conexao, queimaId);
+  afirmar(somaAtiva(lista).p === 4 && lista.length === 2, `(13): Σ ativa de P deveria ser 4 em dois vínculos, veio ${JSON.stringify(lista)}.`);
 }
 
 async function porPrecosDeProva(conexao: Client): Promise<void> {
@@ -739,7 +795,7 @@ async function main(): Promise<void> {
     semente.fornoId = forno.rows[0].id;
     await porPrecosDeProva(conexao);
 
-    console.log("  Corridas das Queimas (06.4-04 e 06.4-05, D-07; quick 261005-2yu), com transações sobrepostas de verdade:");
+    console.log("  Corridas das Queimas (06.4-04 e 06.4-05, D-07; quick 261005-2yu e 261008-pmi), com transações sobrepostas de verdade:");
     // Cada caso semeia a sua queima: uma falha não contamina o seguinte. Roda TODOS e junta as falhas
     // (quick 261005-2yu) — parar no primeiro escondia quantos casos uma regressão derruba.
     const casos: [string, () => Promise<void>][] = [
@@ -755,6 +811,7 @@ async function main(): Promise<void> {
       ["(10)", () => provarRecebiXLancarPartesQueCabem(conexao, observador)],
       ["(11)", () => provarExcluirQueimaComVendaNova(conexao, observador)],
       ["(12)", () => provarRecebiRepetido(conexao)],
+      ["(13)", () => provarLancarRepetido(conexao)],
     ];
     const falhas: string[] = [];
     for (const [nome, caso] of casos) {

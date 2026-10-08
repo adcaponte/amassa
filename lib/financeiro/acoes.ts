@@ -44,6 +44,7 @@ import {
   esquemaId,
   esquemaPagamento,
   esquemaVenda,
+  FRASE_VENDA_DESATUALIZADA,
 } from "./esquemas";
 import { hojeEmBrasilia } from "./formato";
 import { conferirParcelas } from "./parcelas";
@@ -80,9 +81,11 @@ function primeiraMensagemDeErro(resultado: { error: { issues: { message: string 
 // vai junto da frase — a tela do plano 17 o põe em `data-motivo` e decide o botão (“Lançar como venda
 // nova” só em `cancelada`). `rede` = falha inesperada com a correção (a transação desfez tudo).
 export type MotivoDaCorrecaoNaTela = MotivoDaRecusaDaCorrecao | "rede";
+// `telaMudou` (quick 261008-pmi, auditoria 08/10): a recusa é de TELA VELHA — a Venda das Queimas viu
+// outras vendas ativas da queima; o painel mostra a frase e relê a página.
 export type ResultadoDoLancamento<T> =
   | { ok: true; dados: T }
-  | { ok: false; erro: string; motivoDaCorrecao?: MotivoDaCorrecaoNaTela };
+  | { ok: false; erro: string; motivoDaCorrecao?: MotivoDaCorrecaoNaTela; telaMudou?: true };
 
 // A frase da recusa sob a trava (`RecusaDaCorrecao`), verbatim da UI-SPEC. O número da original e o
 // da nova foram lidos pelo servidor sob a trava; o texto do banco nunca vai à tela.
@@ -354,8 +357,16 @@ export async function lancarVenda(
       // nenhuma linha de queima → `FRASE_LINHA_DA_QUEIMA_FALTANDO` (o painel recusa antes, no cliente; esta é
       // a defesa contra um pedido forjado); algum tamanho acima do que falta → `fraseAcimaDoQueFaltaNaVenda`.
       // A pessoa NÃO é sobrescrita: a queima externa não tem cliente; vale o que o dono escreveu.
+      // Quick 261008-pmi (08/10/2026), auditoria 08/10 — Queimas, aviso 1: a Venda manda as vendas ativas
+      // que a página leu (`vendasVistas`), e `vincularQueimaNaVenda` recusa sob a trava se as de agora são
+      // outras (`RecusaDasQueimas` com `telaMudou`) — um segundo “Lançar venda” depois de uma resposta
+      // perdida nunca grava outra venda das mesmas peças. Sem o retrato (o esquema já recusa), recusa
+      // aqui também: a conferência nunca é pulada.
       if (!ehOrigemDaAgenda(origem)) {
-        const vinculoDaQueima = await vincularQueimaNaVenda(tx, origem.id);
+        if (dados.vendasVistas === null) {
+          throw new RecusaDasQueimas(FRASE_VENDA_DESATUALIZADA);
+        }
+        const vinculoDaQueima = await vincularQueimaNaVenda(tx, origem.id, dados.vendasVistas);
         const quantidades = vinculoDaQueima.conferir(pedido.linhas);
         const gravadaDaQueima = await gravarVenda(tx, pedido, {
           registradoPor: usuario.id,
@@ -414,6 +425,9 @@ export async function lancarVenda(
   } catch (erro) {
     if (erro instanceof RecusaDaCorrecao) {
       return respostaDaRecusaDaCorrecao(erro, "venda");
+    }
+    if (erro instanceof RecusaDasQueimas && erro.detalhe?.telaMudou) {
+      return { ok: false, erro: erro.frase, telaMudou: true };
     }
     if (erro instanceof RecusaDaAgenda || erro instanceof RecusaDasQueimas) {
       return { ok: false, erro: erro.frase };
