@@ -575,3 +575,43 @@ describe("WR-01 e WR-02 — decididos pelo dono em 29/09/2026 (a alternativa da 
     expect(custoMedioParaExibir(estorno.estadoDepois)).toBeNull();
   });
 });
+
+// Quick 261008-pmi (08/10/2026), auditoria 08/10 — Estoque, aviso 1: a entrada de R$ 0 (doação, sobra —
+// D-04) soma quantidade e dilui o médio, mas NÃO vira a "última entrada com preço": senão, com o saldo
+// zerado, a próxima saída sairia a R$ 0.
+describe("auditoria 08/10, aviso 1 — a entrada de R$ 0 não vira a referência de custo", () => {
+  it("compra 5 kg R$ 21 → doação 1 kg → baixa 6 kg → a saída de 1 kg vale R$ 4,20 (−420), nunca R$ 0", () => {
+    const compra = valorarMovimento(ESTADO_VAZIO, { tipo: "entrada_com_preco", milesimos: 5000, pagoCentavos: 2100 });
+    const doacao = valorarMovimento(compra.estadoDepois, {
+      tipo: "entrada_com_preco",
+      milesimos: 1000,
+      pagoCentavos: 0,
+    });
+    expect(doacao.valorCentavos).toBe(0);
+    expect(doacao.estadoDepois).toEqual({
+      saldoMilesimos: 6000,
+      valorCentavos: 2100,
+      ultimaEntradaComPreco: { valorCentavos: 2100, milesimos: 5000 },
+    });
+    const baixa = valorarMovimento(doacao.estadoDepois, { tipo: "saida", milesimos: 6000 });
+    expect(baixa.estadoDepois.saldoMilesimos).toBe(0);
+    expect(baixa.estadoDepois.valorCentavos).toBe(0);
+    expect(custoMedioCentavosPorUnidade(baixa.estadoDepois)).toBe(420);
+    const venda = valorarMovimento(baixa.estadoDepois, { tipo: "saida", milesimos: 1000 });
+    expect(venda.valorCentavos).toBe(-420);
+  });
+
+  it("a primeira entrada de um material com R$ 0 deixa a última entrada com preço vazia", () => {
+    const doacao = valorarMovimento(ESTADO_VAZIO, { tipo: "entrada_com_preco", milesimos: 2000, pagoCentavos: 0 });
+    expect(doacao.estadoDepois).toEqual({ saldoMilesimos: 2000, valorCentavos: 0, ultimaEntradaComPreco: null });
+  });
+
+  it("com saldo positivo, a entrada de R$ 0 dilui o médio como antes: V não muda, Q sobe", () => {
+    const antes = estado(5000, 2100, ENTRADA_DO_CASO_1);
+    const doacao = valorarMovimento(antes, { tipo: "entrada_com_preco", milesimos: 2000, pagoCentavos: 0 });
+    expect(doacao.valorCentavos).toBe(0);
+    expect(doacao.estadoDepois.saldoMilesimos).toBe(7000);
+    expect(doacao.estadoDepois.valorCentavos).toBe(2100);
+    expect(custoMedioCentavosPorUnidade(doacao.estadoDepois)).toBe(300);
+  });
+});

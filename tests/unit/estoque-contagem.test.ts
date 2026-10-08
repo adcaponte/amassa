@@ -5,6 +5,7 @@ import {
   conferirSaldoDoCusto,
   modoDoMaterial,
   planejarContagem,
+  tiraDaPrimeiraContagem,
   previaDaContagem,
   progressoDaContagem,
   type MaterialParaContagem,
@@ -31,18 +32,49 @@ function material(parcial: Partial<MaterialParaContagem> & { nome: string }): Ma
     area: "pecas",
     categoriaCompraNome: "Insumos",
     ativo: true,
-    temManual: false,
+    jaTemReferencia: false,
     ...parcial,
   };
 }
 
 describe("modoDoMaterial — o modo é por material, nunca por visita (UI-D2)", () => {
-  it("sem nenhuma movimentação manual → primeira contagem", () => {
-    expect(modoDoMaterial({ temManual: false })).toBe("primeira");
+  it("sem referência (nunca contado nem com entrada manual com custo) → primeira contagem", () => {
+    expect(modoDoMaterial({ jaTemReferencia: false })).toBe("primeira");
   });
 
-  it("com movimentação manual → conferência", () => {
-    expect(modoDoMaterial({ temManual: true })).toBe("conferencia");
+  it("com referência → conferência", () => {
+    expect(modoDoMaterial({ jaTemReferencia: true })).toBe("conferencia");
+  });
+});
+
+// Quick 261008-pmi (08/10/2026), auditoria 08/10 — Estoque, aviso 2: só uma contagem ou uma entrada manual
+// com custo tira o material da primeira contagem; uma saída manual (ou a entrada de R$ 0) antes de contar,
+// não.
+describe("tiraDaPrimeiraContagem (auditoria 08/10, aviso 2)", () => {
+  it("saída manual → não tira", () => {
+    expect(tiraDaPrimeiraContagem({ tipo: "saida", motivo: null, comCusto: false })).toBe(false);
+  });
+
+  it("entrada manual sem custo (R$ 0, sem motivo) → não tira", () => {
+    expect(tiraDaPrimeiraContagem({ tipo: "entrada", motivo: null, comCusto: false })).toBe(false);
+  });
+
+  it("entrada manual com custo → tira", () => {
+    expect(tiraDaPrimeiraContagem({ tipo: "entrada", motivo: null, comCusto: true })).toBe(true);
+  });
+
+  it("contagem (motivo saldo_inicial), entrada de R$ 0 ou ajuste → tira", () => {
+    expect(tiraDaPrimeiraContagem({ tipo: "entrada", motivo: "saldo_inicial", comCusto: false })).toBe(true);
+    expect(tiraDaPrimeiraContagem({ tipo: "ajuste", motivo: "saldo_inicial", comCusto: false })).toBe(true);
+  });
+
+  it("ajuste sem motivo (conferência, ajuste pelo contado) → tira", () => {
+    expect(tiraDaPrimeiraContagem({ tipo: "ajuste", motivo: null, comCusto: false })).toBe(true);
+  });
+
+  it("peça pronta: com custo tira, sem custo não", () => {
+    expect(tiraDaPrimeiraContagem({ tipo: "entrada", motivo: "peca_pronta", comCusto: true })).toBe(true);
+    expect(tiraDaPrimeiraContagem({ tipo: "entrada", motivo: "peca_pronta", comCusto: false })).toBe(false);
   });
 });
 
@@ -179,14 +211,14 @@ describe("previaDaContagem — a frase que aparece depois de digitar (UI-D16)", 
 });
 
 describe("agruparContagem — dois grupos, área na ordem fixa, nome pt-BR", () => {
-  it("separa por temManual, ordena por área e nome, exclui desativados e omite grupo vazio", () => {
+  it("separa por jaTemReferencia, ordena por área e nome, exclui desativados e omite grupo vazio", () => {
     const itens = [
       material({ nome: "Esmalte azul", area: "pecas" }),
       material({ nome: "Café em grão", area: "cafeteria" }),
       material({ nome: "Argila", area: "pecas" }),
       material({ nome: "Água", area: "pecas" }),
-      material({ nome: "Sacola", area: "loja", temManual: true }),
-      material({ nome: "Guardanapo", area: "cafeteria", temManual: true }),
+      material({ nome: "Sacola", area: "loja", jaTemReferencia: true }),
+      material({ nome: "Guardanapo", area: "cafeteria", jaTemReferencia: true }),
       material({ nome: "Velho", area: "geral", ativo: false }),
     ];
     const grupos = agruparContagem(itens, { busca: "", area: null });
@@ -198,7 +230,7 @@ describe("agruparContagem — dois grupos, área na ordem fixa, nome pt-BR", () 
     expect(grupos[1].quantos).toBe(2);
 
     const soPrimeira = agruparContagem(
-      itens.filter((item) => !item.temManual),
+      itens.filter((item) => !item.jaTemReferencia),
       { busca: "", area: null },
     );
     expect(soPrimeira.map((grupo) => grupo.modo)).toEqual(["primeira"]);
@@ -208,7 +240,7 @@ describe("agruparContagem — dois grupos, área na ordem fixa, nome pt-BR", () 
     const itens = [
       material({ nome: "Café em grão", area: "cafeteria", categoriaCompraNome: "Insumos da cafeteria" }),
       material({ nome: "Argila", area: "pecas", categoriaCompraNome: "Argila e esmalte" }),
-      material({ nome: "Sacola", area: "loja", temManual: true, categoriaCompraNome: "Embalagem" }),
+      material({ nome: "Sacola", area: "loja", jaTemReferencia: true, categoriaCompraNome: "Embalagem" }),
     ];
     expect(
       agruparContagem(itens, { busca: "CAFE", area: null }).flatMap((g) => g.areas.flatMap((a) => a.itens.map((i) => i.nome))),

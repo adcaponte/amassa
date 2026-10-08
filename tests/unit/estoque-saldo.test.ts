@@ -40,6 +40,7 @@ function item(parcial: Partial<SaldoParaLista> & { nome: string }): SaldoParaLis
     estoqueMinimoMilesimos: 0,
     valorCentavos: 0,
     ultimaEntradaComPreco: null,
+    teveEntrada: false,
     ...parcial,
   };
 }
@@ -358,8 +359,36 @@ describe("custoMedioParaExibir — EST-02 · empty / partial E1", () => {
       saldoMilesimos: 5000,
       valorCentavos: 2100,
       ultimaEntradaComPreco: { valorCentavos: 2100, milesimos: 5000 },
+      teveEntrada: true,
     });
     expect(custoMedioParaExibir(argila)).toBe(420);
+  });
+
+  // Quick 261008-pmi (08/10/2026), auditoria 08/10 — Estoque, aviso 1: a entrada de R$ 0 não é mais a
+  // última entrada com preço; “—” × “sem custo” (06.5) passa a ser decidido por `teveEntrada`.
+  it("só doação (sem entrada com preço > 0, saldo positivo) → 0 (“sem custo”)", () => {
+    const doada = item({ nome: "Doada", saldoMilesimos: 5000, valorCentavos: 0, teveEntrada: true });
+    expect(custoMedioParaExibir(doada)).toBe(0);
+  });
+
+  it("compra + doação + baixa total (saldo zero) → o custo da última compra (420), nunca 0", () => {
+    const zerada = item({
+      nome: "Zerada",
+      saldoMilesimos: 0,
+      valorCentavos: 0,
+      ultimaEntradaComPreco: { valorCentavos: 2100, milesimos: 5000 },
+      teveEntrada: true,
+    });
+    expect(custoMedioParaExibir(zerada)).toBe(420);
+  });
+
+  it("nunca entrou (só saída) → null (“—”)", () => {
+    expect(custoMedioParaExibir(item({ nome: "Só saída", saldoMilesimos: -160, teveEntrada: false }))).toBeNull();
+  });
+
+  it("doação e baixa total (saldo zero, nenhuma entrada com preço) → 0 (“sem custo”)", () => {
+    const doadaEZerada = item({ nome: "Doada e zerada", saldoMilesimos: 0, valorCentavos: 0, teveEntrada: true });
+    expect(custoMedioParaExibir(doadaEZerada)).toBe(0);
   });
 });
 
