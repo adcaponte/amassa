@@ -41,6 +41,7 @@ import {
   fraseContagemMudou,
   fraseExclusaoComVendasNovas,
   fraseVendasMudaram,
+  fraseVendasMudaramNaVenda,
 } from "../../lib/queimas/textos";
 
 describe("textoDoNivel", () => {
@@ -444,5 +445,29 @@ describe("frases da tela desatualizada (06.4-WR-01/02/03)", () => {
     const frase = fraseContagemMudou(null);
     expect(frase).toMatch(/apagou|apagada/);
     expect(frase).toMatch(/enquanto a folha estava aberta/);
+  });
+});
+
+// Quick 261008-pmi (08/10/2026), auditoria 08/10 — Queimas, aviso 1: o "Lançar na Venda" repetido depois
+// de uma resposta perdida é recusado sob a trava, citando a venda que já entrou.
+describe("Lançar na Venda repetido (auditoria 08/10, aviso 1)", () => {
+  it("cita a venda nova, diz que o toque anterior já valeu e o que fazer antes de lançar de novo", () => {
+    const frase = fraseVendasMudaramNaVenda([10]);
+    expect(frase).toContain("venda nº 10");
+    expect(frase).toContain("desde que esta Venda abriu");
+    expect(frase).toContain("já valeu");
+    expect(frase).toContain("antes de lançar de novo");
+    expect(frase).not.toMatch(/folha/);
+  });
+
+  it("com duas vendas novas, cita as duas", () => {
+    expect(fraseVendasMudaramNaVenda([10, 11])).toContain("vendas nº 10 e 11");
+  });
+
+  it("com lista vazia, diz que as vendas mudaram e que a tela foi atualizada, sem número", () => {
+    const frase = fraseVendasMudaramNaVenda([]);
+    expect(frase).not.toMatch(/nº/);
+    expect(frase).toMatch(/vendas desta queima mudaram/);
+    expect(frase).toContain("A tela foi atualizada");
   });
 });

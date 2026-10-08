@@ -5,8 +5,11 @@ import {
   esquemaVenda,
   FRASE_CORRECAO_COM_ORIGEM,
   FRASE_CORRECAO_INVALIDA,
+  FRASE_VENDA_DESATUALIZADA,
 } from "@/lib/financeiro/esquemas";
 import {
+  FRASE_VENDA_SEM_RESPOSTA,
+  FRASE_VENDA_SEM_RESPOSTA_COM_ORIGEM,
   fraseCorrecaoRecusada,
   fraseCorrecaoSemRede,
   fraseSemCorrecaoPorOrigem,
@@ -160,5 +163,75 @@ describe("frases do “Corrigir” — verbatim da UI-SPEC", () => {
     expect(fraseSemCorrecaoPorOrigem("despesa", "conta_fixa")).toBe(
       "Esta despesa veio das Contas fixas. Para corrigir, cancele aqui e gere o mês de novo em Contas fixas.",
     );
+  });
+});
+
+// Quick 261008-pmi (08/10/2026), auditoria 08/10 — Queimas, aviso 1: a Venda aberta pelas Queimas leva o
+// retrato das vendas ativas que a página leu (`vendasVistas`); só ela.
+describe("esquemaVenda — o retrato das Queimas (auditoria 08/10)", () => {
+  const QUEIMA = "1d2e3f40-5a6b-4c7d-8e9f-a0b1c2d3e4f5";
+
+  it("origem queima SEM vendasVistas é recusada como tela desatualizada", () => {
+    const resultado = esquemaVenda.safeParse({ ...vendaBase(), origem: `queima:${QUEIMA}` });
+    expect(resultado.success).toBe(false);
+    expect(primeiraMensagem(resultado)).toBe(FRASE_VENDA_DESATUALIZADA);
+  });
+
+  it("origem queima com vendasVistas passa e devolve as vistas (inclusive a lista vazia)", () => {
+    const comDuas = esquemaVenda.safeParse({ ...vendaBase(), origem: `queima:${QUEIMA}`, vendasVistas: [3, 7] });
+    expect(comDuas.success).toBe(true);
+    expect(comDuas.data?.vendasVistas).toEqual([3, 7]);
+    const vazia = esquemaVenda.safeParse({ ...vendaBase(), origem: `queima:${QUEIMA}`, vendasVistas: [] });
+    expect(vazia.success).toBe(true);
+    expect(vazia.data?.vendasVistas).toEqual([]);
+  });
+
+  it("vendasVistas sem origem queima (Agenda, manual, ou com correcao) é recusado — pedido forjado", () => {
+    const daAgenda = esquemaVenda.safeParse({ ...vendaBase(), origem: `mensalidade:${QUEIMA}`, vendasVistas: [3] });
+    expect(daAgenda.success).toBe(false);
+    const manual = esquemaVenda.safeParse({ ...vendaBase(), vendasVistas: [] });
+    expect(manual.success).toBe(false);
+    const comCorrecao = esquemaVenda.safeParse({
+      ...vendaBase(),
+      correcao: { documentoId: ORIGINAL, versao: "0a1b2c3d" },
+      vendasVistas: [3],
+    });
+    expect(comCorrecao.success).toBe(false);
+  });
+
+  it("vendasVistas fora de forma (0, negativo, fracionário, mais de 500) é recusado com a frase da tela desatualizada", () => {
+    const quinhentosEUm = Array.from({ length: 501 }, (_, indice) => indice + 1);
+    for (const vistas of [[0], [-1], [1.5], quinhentosEUm]) {
+      const resultado = esquemaVenda.safeParse({ ...vendaBase(), origem: `queima:${QUEIMA}`, vendasVistas: vistas });
+      expect(resultado.success).toBe(false);
+      expect(primeiraMensagem(resultado)).toBe(FRASE_VENDA_DESATUALIZADA);
+    }
+  });
+
+  it("a Venda manual sem vendasVistas segue igual, com vendasVistas nulo", () => {
+    const resultado = esquemaVenda.safeParse(vendaBase());
+    expect(resultado.success).toBe(true);
+    expect(resultado.data?.vendasVistas).toBeNull();
+  });
+
+  it("a Venda da Agenda sem vendasVistas segue igual, com vendasVistas nulo", () => {
+    const resultado = esquemaVenda.safeParse({ ...vendaBase(), origem: `mensalidade:${QUEIMA}` });
+    expect(resultado.success).toBe(true);
+    expect(resultado.data?.vendasVistas).toBeNull();
+  });
+});
+
+describe("as frases da falha de rede no “Lançar venda” (auditoria 08/10)", () => {
+  it("nenhuma afirma que nada foi gravado; as duas dizem que a conexão falhou", () => {
+    for (const frase of [FRASE_VENDA_SEM_RESPOSTA_COM_ORIGEM, FRASE_VENDA_SEM_RESPOSTA]) {
+      expect(frase).toContain("conexão falhou");
+      expect(frase.startsWith("Não deu para salvar")).toBe(false);
+      expect(frase).not.toMatch(/nada foi gravado/);
+    }
+  });
+
+  it("com origem, diz que pode tocar de novo; na manual, manda conferir no Caixa", () => {
+    expect(FRASE_VENDA_SEM_RESPOSTA_COM_ORIGEM).toMatch(/Pode tocar/);
+    expect(FRASE_VENDA_SEM_RESPOSTA).toContain("Caixa");
   });
 });
