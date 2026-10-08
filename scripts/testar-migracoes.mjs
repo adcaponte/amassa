@@ -7455,6 +7455,16 @@ function provarCorridasDaCorrecao() {
   });
 }
 
+// A limpeza geral antes da inauguração (quick 261008-6f1, item 10 da fila do Code): roda o CLI DE
+// VERDADE (`npm run limpeza-geral`, o mesmo comando do Roteiro 24) num banco PRÓPRIO que a prova cria
+// e apaga — a limpeza é destrutiva e nunca toca o banco que os outros passos compartilham (o motivo
+// de `provarRemocaoEmBancoProprio`). Sai diferente de 0 se qualquer afirmação falhar.
+function provarLimpezaGeral() {
+  rodarNpm("node", ["scripts/provar-limpeza-geral.mjs"], {
+    env: { ...process.env, DATABASE_URL_TESTE: process.env.DATABASE_URL_TESTE },
+  });
+}
+
 async function conferirBanco() {
   const cliente = new Client({ connectionString: process.env.DATABASE_URL_TESTE });
   await cliente.connect();
@@ -7503,6 +7513,9 @@ async function conferirBanco() {
   // Idem — a janela da 0031 precisa de um banco parado na 0030 (ver o comentário de
   // `provarJanelaDoPolimentoEmBancoProprio`).
   await provarJanelaDoPolimentoEmBancoProprio();
+
+  // Idem — a limpeza geral apaga quase tudo; banco próprio (ver `provarLimpezaGeral`).
+  provarLimpezaGeral();
 }
 
 async function main() {
