@@ -180,10 +180,11 @@ Orçamento não é planejada. Nada mais depende dela — o polimento final **nã
   não faz backup nenhum, e o que faz custa US$ 25/mês.
 - **Idioma**: **português do Brasil** em toda a interface, mensagens de erro e nomes de tabela e
   coluna. Código (variáveis, funções, tipos) em inglês, seguindo a convenção da linguagem.
-- **Tech stack**: Next.js 15+ (App Router, TypeScript estrito), React 19, Tailwind CSS v4,
+- **Tech stack**: Next.js 16 (App Router, TypeScript estrito), React 19, Tailwind CSS v4,
   shadcn/ui, Recharts, PostgreSQL em Docker, Drizzle ORM, Auth.js v5 (Credentials + argon2id),
   Server Actions + Zod, TanStack Query só onde há interação otimista, date-fns, react-hook-form,
   lucide-react, Vitest, Playwright. Caddy como proxy reverso com HTTPS automático.
+  *Até 11/10/2026 dizia "Next.js 15+"; o `package.json` tem `next` 16.3.5, como o `.claude/CLAUDE.md`.*
 - **Segurança**: repositório **público**. Nenhum segredo em nenhum commit, nunca. Nenhum dado real
   de aluna ou cliente em nenhum arquivo. Secret scanning e push protection habilitados.
 - **Autorização**: **toda Server Action começa por `exigirUsuario()`** na primeira linha. É a única
@@ -254,10 +255,32 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-09-29 after Fase 04.6 (`/gestao`, Início novo, navegação e site público).*
+*Last updated: 2026-10-11 — varredura de estado (fases até a 06.5 fechadas, item 10 feito, auditoria de 08/10).*
+*Até 11/10/2026 esta linha dizia: "Last updated: 2026-09-29 after Fase 04.6 (`/gestao`, Início novo, navegação e site público)."*
 *Ressalva de sincronia: só a seção Requirements do Módulo 1 (Encomendas) foi reconciliada até a Fase 04.1.*
 *As Fases 2b, 3, 4, 04.2, 04.4 e 04.5 concluíram sem passar por aqui — os itens delas continuam listados em Active mesmo já entregues (a 04.3 e a 04.6 foram registradas em Validated).*
 *A fonte de verdade de status por requisito é `.planning/REQUIREMENTS.md`.*
+
+**Estado atual (11/10/2026):** **nenhuma fase em execução.** Todas as fases do roadmap até a
+**06.5 (Polimento)** estão fechadas e no ar — a 06.5 fechou em 07/10/2026 (`[x]` no `ROADMAP.md`;
+run `37667733188` verde; migração `0031` aplicada pelo dono; caminhada 17/17; verificação `passed`
+7/7 e POL-01..14), e as correções da revisão dela (BL-01, WR-01..04, quick `261007-shs`) estão no
+ar desde 07/10 (run `37684181034`; Roteiro 23 com 0 linhas). Desde 29/09 fecharam também a 06
+(Estoque), a 06.1 (Produção), a 5 (Agenda), a 06.2 (Fornecedores), a 06.3 (Lembretes) e a 06.4
+(Queimas — contagem). O **item 10 da fila — a limpeza geral dos dados** (quick `261008-6f1`,
+Roteiro 24) — foi feito em produção pelo Theo em 08/10/2026, ~06h15 UTC. A **auditoria dos módulos
+com dinheiro e estoque** (rodada 1, 08/10: Financeiro + Precificação, Estoque, Agenda › A receber e
+cobrança das Queimas) achou 0 bloqueios; os três avisos confirmados foram corrigidos e estão no ar
+desde 08/10, ~18h45 UTC (quick `261008-pmi`, run `37823880528`); o AVISO-01 do Financeiro fica como
+está, por decisão do Theo. Abertos: as pendências P1–P3, a NOTA da Agenda e as próximas rodadas
+(Orçamentos, Produção, Caixa/`desfazerPagamento`, Fornecedores, Cotações, o resto das Queimas) —
+`Claude outputs/auditoria/ACOMPANHAMENTO.md`. Pendente do Theo: o conteúdo do site (endereço, "quem
+somos", fotos da fachada, mapa, Instagram). Restante no roadmap: a Fase 7 (Polimento e Entrega), sem
+planos. *Como sei (11/10/2026):* `git fetch` + `git log main..origin/main` vazio e `git log
+origin/main..main` só com `1d78f13` (documentação); os runs e as decisões citados estão em
+`.planning/STATE.md` e no `ROADMAP.md`.
+
+*Até 11/10/2026 o parágrafo de estado era o de 29/09, abaixo — histórico:*
 
 **Estado atual (29/09/2026):** Fase **04.6 concluída e verificada** (9/9; `phase.complete` em
 `598fbc7`). Em produção, conferido de fora: o site público na raiz e a plataforma em `/gestao`,

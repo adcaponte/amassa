@@ -1,41 +1,75 @@
 # AMASSA — Plataforma de Gestão do Ateliê
 
-Plataforma web interna, privada e responsiva, para os gestores do **AMASSA** — ateliê de
-cerâmica artesanal de alta temperatura em Goiânia — administrarem a operação do dia a dia em
-um único lugar. Cinco módulos: Encomendas, Agenda de Aulas, Contador de Queima, Estoque e
-Calculadora de Orçamento.
+Plataforma web interna, privada e responsiva, para os gestores da **AMASSA CERRADO** — espaço de
+cerâmica artesanal de alta temperatura em **Pirenópolis**, com loja física e café, inauguração em
+dezembro de 2026 — administrarem a operação do dia a dia em um único lugar, substituindo planilhas
+e controles espalhados.
 
-Este não é o site institucional (`amassaceramica.com.br`) nem a loja Shopify — os dois
-continuam existindo separadamente e estão fora do escopo deste repositório.
+Módulos (os que existem em `app/gestao/(app)/` e na barra lateral, `lib/navegacao/itens.ts`):
+**Início** (Anotações da casa e Lembretes), **Financeiro** (Venda, Despesa, Caixa, Mês, e a
+precificação: Orçamentos e Peças — substitui a antiga Calculadora de Orçamento), **Produção** (o
+redesenho das Encomendas), **Agenda** (turmas, oficinas, uso livre, presença e "a receber"),
+**Queimas** (contador de queimas dos fornos, contagem do que queimou e relatórios), **Estoque**,
+**Lembretes** e **Cadastros** (catálogo, categorias, contas fixas, taxas, parâmetros, clientes e
+fornecedores). A **Abertura do Espaço** (temporária, com o **Comparador de Compras**) fica no menu
+do usuário.
 
-A documentação completa de arquitetura, modelo de dados, roadmap e design system vive em
-[`amassa-plataforma/`](./amassa-plataforma). Este README cobre só o que é preciso para rodar
-e operar o sistema no dia a dia.
+**Não confundir os dois negócios.** A **AMASSA** de **Goiânia** (`amassaceramica.com.br`, com loja
+Shopify) é de outras sócias e está **fora do escopo** deste repositório — sem redirecionamento, sem
+dado compartilhado.
 
-Os roteiros comentados para preparar e publicar o servidor de produção vivem em
-[`docs/operacao/`](./docs/operacao): [`01-preparar-servidor.md`](./docs/operacao/01-preparar-servidor.md)
-(endurecimento do VPS, Docker, `/opt/amassa` e chave de deploy),
-[`02-publicar-e-dominio.md`](./docs/operacao/02-publicar-e-dominio.md) (DNS, primeira
-publicação, HTTPS e monitor externo) e
-[`03-backup-e-restauracao.md`](./docs/operacao/03-backup-e-restauracao.md) (virada da aplicação
-para o papel de banco restrito, contas de gestor, backup diário automático com envio externo, e o
-roteiro de restauração para um dia ruim).
+O domínio deste projeto é **`amassacerrado.com.br`**: a raiz é o **site público institucional** da
+AMASSA CERRADO (estático, continua no ar com o Postgres derrubado) e a plataforma responde em
+**`/gestao`**, sem link a partir do site.
+
+*Até 11/10/2026 este README falava da AMASSA de Goiânia, de "cinco módulos" com a "Calculadora de
+Orçamento", de Next.js 15+, de `amassaceramica.com.br` como o site institucional e de um pipeline de
+quatro jobs — tudo anterior às Fases 04.4–06.5. Corrigido conferindo o código: `app/gestao/(app)/`,
+`lib/navegacao/itens.ts`, `package.json`, `docker/` e `.github/workflows/entrega.yml`.*
+
+A documentação de arquitetura, modelo de dados, roadmap original e design system vive em
+[`amassa-plataforma/`](./amassa-plataforma) (escrita a partir do material da AMASSA de Goiânia —
+as regras de negócio podem não valer para Pirenópolis). O planejamento e o estado do projeto vivem
+em `.planning/` (`ROADMAP.md`, `STATE.md`, `REQUIREMENTS.md`). Este README cobre só o que é preciso
+para rodar e operar o sistema.
+
+### Roteiros de operação
+
+Os roteiros comentados do servidor vivem em [`docs/operacao/`](./docs/operacao), numerados na ordem
+em que foram executados pelo dono:
+
+- **01–03** — preparar o servidor (VPS, Docker, `/opt/amassa`, chave de deploy), DNS, primeira
+  publicação, HTTPS e monitor externo, backup e restauração.
+- **04–23** — a migração (ou a correção) de cada fase: Encomendas (04), Queimas (05), espera dos
+  marcos (06), Abertura do Espaço (07, 08), Comparador de Compras (09), Financeiro (10, 11), fotos,
+  volume e backup (12), Precificação e Orçamentos (13), `/gestao` e site público (14), Estoque (15),
+  Produção (16), Agenda (17, 18), Fornecedores (19), Lembretes (20), Queimas — contagem (21),
+  Polimento (22) e as correções da revisão 06.5 (23).
+- **24** — [`24-limpeza-geral.md`](./docs/operacao/24-limpeza-geral.md): a limpeza geral dos dados
+  antes da inauguração (`npm run limpeza-geral`, ensaio por padrão).
 
 ## Stack
 
-Next.js 15+ (App Router, TypeScript estrito), React 19, Tailwind CSS v4, PostgreSQL em
-Docker, Drizzle ORM, Vitest. Ver `amassa-plataforma/01-ARQUITETURA.md` §2 para a lista
-completa e a razão de cada escolha.
+Next.js 16 (App Router, TypeScript estrito), React 19, Tailwind CSS v4, shadcn/ui (Radix), Recharts,
+PostgreSQL em Docker, Drizzle ORM, Auth.js v5 (Credentials + argon2id), Server Actions + Zod,
+react-hook-form, lucide-react, Vitest e Playwright; Caddy como proxy reverso com HTTPS automático.
+As versões exatas estão no `package.json`. Ver `amassa-plataforma/01-ARQUITETURA.md` §2 para a
+razão de cada escolha.
 
 ## Desenvolvimento local
 
 ```bash
 cp .env.example .env.local   # preencher com valores de desenvolvimento
-docker compose -f docker/compose.yml -f docker/compose.dev.yml up -d postgres
+docker compose --env-file .env.local -f docker/compose.yml -f docker/compose.dev.yml up -d postgres
 npm install
 npm run db:migrate
 npm run dev
 ```
+
+O `--env-file .env.local` é obrigatório: o `docker/compose.yml` lê `${POSTGRES_USER}`,
+`${POSTGRES_PASSWORD}` e `${POSTGRES_DB}`, e o Compose procura o `.env` na pasta `docker/`, que não
+existe — sem a opção o Postgres sobe sem senha e reinicia em loop ("superuser password is not
+specified").
 
 `docker/compose.dev.yml` é uma sobreposição só de desenvolvimento — publica o Postgres em
 `127.0.0.1:5433` e sabe construir as imagens `app`/`ferramentas` localmente a partir do
@@ -44,13 +78,28 @@ npm run dev
 ### Portões de qualidade
 
 ```bash
+npm run verificar        # o portão de todo plano: lint, tsc --noEmit, verificar-acoes, npm test e test:migracoes
+```
+
+`npm run verificar` encadeia, nesta ordem:
+
+```bash
 npm run lint             # ESLint, --max-warnings=0
+npx tsc --noEmit         # tipos
 npm run verificar-acoes  # exigirUsuario() na primeira instrução de toda ação que toca o banco
 npm test                 # Vitest
-npm run test:migracoes   # base comum do banco, de fora, num Postgres efêmero
-npm run test:backup      # backup.sh e restaurar.sh de ponta a ponta, sem servidor
-npm run build            # next build
+npm run test:migracoes   # base comum do banco, de fora, num Postgres efêmero (lista TABELAS_ESPERADAS)
 ```
+
+Fora dele, mais caros ou mais específicos:
+
+```bash
+npm run test:e2e             # Playwright contra a imagem construída (~53 s de Postgres e build antes do 1º teste)
+npm run test:backup          # backup.sh e restaurar.sh de ponta a ponta, sem servidor
+npm run test:site-sem-banco  # o site público responde com o Postgres derrubado
+```
+
+Toda fase que mexe em `db/schema.ts` atualiza `TABELAS_ESPERADAS` em `scripts/testar-migracoes.mjs`.
 
 ## Operação em produção
 
@@ -98,6 +147,7 @@ tabela `usuarios`.
 
 ```bash
 docker compose pull app
+docker compose --profile ferramentas pull ferramentas
 docker compose up -d app
 ```
 
@@ -154,11 +204,18 @@ similar), com alerta por e-mail:
   `amassa-plataforma/01-ARQUITETURA.md` §9 — **um backup que para em silêncio é pior do que
   não ter backup**, porque dá a impressão de estar protegido.
 
+Além dessas, cada módulo que trouxe migração tem a sua rota de saúde em `app/api/health/`
+(`agenda`, `estoque`, `fornecedores`, `lembretes`, `polimento`, `producao`, `queimas`): cada uma
+faz `select` de algo que a migração dela cria e responde `503` se não existir — é como os roteiros
+provam, de fora, que a migração foi aplicada.
+
 ## Produção
 
-A plataforma roda em `https://amassacerrado.com.br` — domínio dedicado, separado do site
-institucional `amassaceramica.com.br`. Serve no apex, com `www.amassacerrado.com.br`
-redirecionando para o apex no Caddyfile.
+Tudo roda em `https://amassacerrado.com.br`, no apex (com `www.amassacerrado.com.br` redirecionando
+para o apex no Caddyfile): o site público na raiz e a plataforma em `/gestao`. Os endereços antigos
+da plataforma (de antes de ela descer para `/gestao`) redirecionam até 2027-03-28
+(`lib/rotas/redirecionamentos-antigos.ts`). Nada aqui tem relação com `amassaceramica.com.br`,
+que é da AMASSA de Goiânia.
 
 ## Variáveis de ambiente
 
@@ -181,38 +238,46 @@ Nunca em um terceiro lugar, e nunca num commit.
 ## Pipeline (GitHub Actions)
 
 `.github/workflows/entrega.yml` dispara em todo `git push` na `main` (e também sob
-acionamento manual) e roda quatro jobs encadeados por `needs`, nesta ordem — um teste
-quebrado interrompe a fila antes de qualquer publicação:
+acionamento manual) e roda seis jobs encadeados por `needs` — sete execuções, porque o `e2e` é
+uma matriz de duas fatias. Um teste quebrado interrompe a fila antes de `:latest` mudar:
 
-1. **`qualidade`** — `npm run lint`, `npm run verificar-acoes` e `npm test`, nessa ordem. O
-   portão mais barato, vem primeiro. `verificar-acoes` garante, por análise da árvore
-   sintática (nunca expressão regular), que toda Server Action que toca o banco chama
-   `exigirUsuario()` como primeira instrução; se reprovar, a mensagem aponta arquivo, linha e
-   função — corrija a chamada que falta e rode `npm run verificar-acoes` de novo antes de subir.
-2. **`e2e`** — sobe um Postgres de teste como *service container* do runner (D-10), aplica o
-   schema nele, constrói a imagem Docker do alvo `app` (o mesmo `docker/Dockerfile` que o job
-   seguinte publica) e roda o Playwright **contra essa imagem rodando de verdade** — nunca
-   contra `next start`, que não é compatível com a saída `standalone` usada em produção.
-3. **`imagem`** — publica duas tags no GHCR a partir do mesmo Dockerfile: o alvo `app`
-   (`ghcr.io/<dono>/amassa:latest`) e o alvo `ferramentas`
-   (`ghcr.io/<dono>/amassa:ferramentas`). `NEXT_PUBLIC_SITE_URL` entra como build-arg, nunca
-   como variável de runtime — é embutida no JavaScript durante o `next build`, e a imagem
-   nasce aqui, não no servidor.
-4. **`implantar`** — só roda quando a variável de repositório `DEPLOY_ATIVO` vale `true`.
-   Conecta por SSH no VPS e executa `docker compose pull app && docker compose up -d app`
-   (sempre nomeando o serviço, nunca `up -d` sozinho) e confere `/api/health` pelo domínio.
-   Nenhum passo deste pipeline aplica migração — migração é sempre manual, depois de um
-   backup, por alguém que está olhando.
+1. **`qualidade`** — `npm run lint`, `npm run verificar-acoes` e `npm test`, nessa ordem.
+   `verificar-acoes` garante, por análise da árvore sintática (nunca expressão regular), que toda
+   Server Action que toca o banco chama `exigirUsuario()` como primeira instrução; se reprovar, a
+   mensagem aponta arquivo, linha e função.
+2. **`construir`** — roda em paralelo com a `qualidade`: constrói e sobe ao GHCR as imagens
+   `app` e `ferramentas` com a tag do commit, a partir do mesmo `docker/Dockerfile`, e entrega
+   os digests aos jobs seguintes. `NEXT_PUBLIC_SITE_URL` entra como build-arg, nunca como
+   variável de runtime — é embutida no JavaScript durante o `next build`, e a imagem nasce aqui,
+   não no servidor.
+3. **`e2e`** (matriz `desktop` / `celular`, depois de `qualidade` e `construir`) — cada fatia sobe
+   o seu Postgres de teste como *service container*, aplica o schema, baixa a imagem `app` **pelo
+   digest** e roda o Playwright **contra essa imagem rodando de verdade** — nunca contra `next
+   start`, que não é compatível com a saída `standalone` usada em produção.
+4. **`banco`** (depois de `qualidade` e `construir`) — aplica o schema num banco de teste **pela
+   imagem `ferramentas`** do commit, confere que ela traz exatamente as migrações do commit, e
+   roda `npm run test:migracoes` e `npm run test:backup`.
+5. **`publicar`** (depois de `construir`, `e2e` e `banco`) — promove pelos digests testados a
+   imagem `app` a `:latest` e a `ferramentas` a `:ferramentas`, e confere que as tags apontam para
+   eles.
+6. **`implantar`** — só roda quando a variável de repositório `DEPLOY_ATIVO` vale `true`.
+   Ressincroniza o `compose.yml` do servidor, conecta por SSH e executa
+   `docker compose pull app`, `docker compose --profile ferramentas pull ferramentas` e
+   `docker compose up -d app` (sempre nomeando o serviço, nunca `up -d` sozinho), e confere
+   `/api/health` pelo domínio. **Nenhum passo deste pipeline aplica migração** — migração é sempre
+   manual, depois de um backup, por alguém que está olhando. O `.env` do servidor também não é
+   tocado: é do dono e editado à mão.
 
 O GitHub Actions espera os seguintes secrets e variáveis já cadastrados no repositório — só
 os nomes ficam aqui, os valores nunca:
 
-- `VPS_HOST` — endereço do servidor de produção
-- `VPS_USUARIO` — usuário SSH de deploy no VPS
-- `VPS_SSH_CHAVE` — chave privada SSH usada pelo pipeline para conectar no VPS
-- `NEXT_PUBLIC_SITE_URL` — passada como build-arg, nunca como variável de runtime
-- `DEPLOY_ATIVO` — liga/desliga o job `implantar` sem desativar o restante do pipeline;
-  começa em `false` até o servidor existir (plano 01-07)
+- secret `VPS_HOST` — endereço do servidor de produção
+- secret `VPS_USUARIO` — usuário SSH de deploy no VPS
+- secret `VPS_SSH_CHAVE` — chave privada SSH usada pelo pipeline para conectar no VPS
+- variável `NEXT_PUBLIC_SITE_URL` — passada como build-arg, nunca como variável de runtime
+- variável `DEPLOY_ATIVO` — liga/desliga o job `implantar` sem desativar o restante do pipeline
+
+O login no GHCR usa o token efêmero do próprio runner (`GITHUB_TOKEN`).
 
 O *package* do GHCR precisa ficar **público** para o VPS baixar a imagem sem autenticar em
 registro nenhum (D-07) — passo de configuração no GitHub que o dono executa no roteiro do
@@ -221,11 +286,14 @@ plano 01-06, depois da primeira publicação.
 ## Estrutura do repositório
 
 ```
-app/            rotas e páginas do Next.js (App Router)
-db/             schema, migrações e conexão com o Postgres (Drizzle)
-docker/         Dockerfile, compose.yml, compose.dev.yml, Caddyfile
-lib/            regras de negócio puras e testadas
-scripts/        comandos de linha de comando invocados via ferramentas (Fase 2 em diante)
-tests/          testes unitários e (a partir da Fase 2) E2E
-amassa-plataforma/  documentação de arquitetura, modelo de dados e roadmap
+app/            rotas do Next.js (App Router): o site público na raiz, a plataforma em app/gestao/
+components/     componentes React (amassa/ da plataforma, site/ do site público, ui/ do shadcn)
+conteudo/       textos do site público
+db/             schema, migrações, limpeza geral e conexão com o Postgres (Drizzle)
+docker/         Dockerfile, compose.yml, compose.dev.yml, compose.teste.yml, Caddyfile
+docs/operacao/  roteiros comentados do servidor (01 a 24)
+lib/            regras de negócio puras e testadas, ações e consultas por módulo
+scripts/        comandos de linha de comando (contas, backup, limpeza) e os testes de fora
+tests/          testes unitários (Vitest) e E2E (Playwright)
+amassa-plataforma/  documentação original de arquitetura, modelo de dados e roadmap
 ```
