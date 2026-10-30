@@ -1,7 +1,9 @@
 import type { MetadataRoute } from "next";
 
-// Fase 04.6 (D-04/SIT-08): o critério do dono é aparecer no Google para "amassa cerrado
-// pirenópolis" — é por isso que a raiz é liberada em `app/robots.ts` enquanto a plataforma
+import { urlDoSite } from "@/lib/site/url";
+
+// Fase 04.6 (D-04/SIT-08): o critério do dono é aparecer no Google pelo nome do ateliê
+// (`MARCA.nome`) e Pirenópolis (o nome mudou em 30/10/2026) — é por isso que a raiz é liberada em `app/robots.ts` enquanto a plataforma
 // interna fica bloqueada, e é por isso que este arquivo existe. Nenhuma âncora de seção
 // (`#espaco`, `#agenda`...) entra aqui — âncoras são posições dentro da MESMA página, não rotas
 // novas, e listá-las duplicaria a mesma URL várias vezes sem ganhar indexação nenhuma.
@@ -21,18 +23,21 @@ import type { MetadataRoute } from "next";
 // Função síncrona, sem chamada assíncrona de E/S nenhuma: não lê sessão nem banco, então
 // responde igual sob carga e continua no ar com o Postgres derrubado (D-15) — a mesma garantia
 // da raiz.
+//
+// Quick 261030-n01 (30/10/2026): a origem das duas entradas é `urlDoSite()` (lib/site/url.ts) — a
+// mesma do `metadataBase` da raiz e de `/privacidade`. Até então era o domínio escrito à mão aqui.
 const PUBLICADO_EM = new Date();
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
     {
-      url: "https://amassacerrado.com.br/",
+      url: `${urlDoSite()}/`,
       lastModified: PUBLICADO_EM,
       changeFrequency: "monthly",
       priority: 1,
     },
     {
-      url: "https://amassacerrado.com.br/privacidade",
+      url: `${urlDoSite()}/privacidade`,
       lastModified: PUBLICADO_EM,
       changeFrequency: "monthly",
       priority: 0.3,

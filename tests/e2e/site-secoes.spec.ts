@@ -1,5 +1,6 @@
 import { test, expect, type Page, type TestInfo } from "@playwright/test";
 
+import { MARCA } from "@/conteudo/marca";
 import { CONTEUDO_SITE } from "@/conteudo/site";
 import { placeholdersNoAr } from "@/lib/site/placeholder";
 import { rotuloTelefoneDoZap } from "@/lib/site/whatsapp";
@@ -220,7 +221,9 @@ test.describe("site secoes", () => {
     expect(resposta.status()).toBe(200);
 
     const corpo = await resposta.text();
-    expect(corpo).toContain("<loc>https://amassacerrado.com.br/</loc>");
+    // Quick 261030-n01 (30/10/2026): a origem é a de `urlDoSite()`, que este processo não sabe
+    // recalcular (ver o describe de metadados em polimento-site.spec.ts) — prova-se a forma.
+    expect(corpo).toMatch(/<loc>https?:\/\/[^<\/]+\/<\/loc>/);
     expect(corpo).not.toContain("gestao");
   });
 
@@ -237,7 +240,7 @@ test.describe("site secoes", () => {
 
     const ogTitle = await page.locator('meta[property="og:title"]').getAttribute("content");
     const ogDescription = await page.locator('meta[property="og:description"]').getAttribute("content");
-    expect(ogTitle).toContain("AMASSA CERRADO");
+    expect(ogTitle).toContain(MARCA.nome);
     expect(ogTitle).toContain("cerâmica");
     expect(ogDescription).toContain("Pirenópolis");
   });

@@ -18,7 +18,8 @@ const ARQUIVOS_DE_ROTA_PUBLICOS = [
   "app/privacidade/page.tsx",
   "app/robots.ts",
   // Decidida no plano 04 (Fase 04.6): rota pública nova, exigida por SIT-08 (o critério do
-  // dono é aparecer no Google para "amassa cerrado pirenópolis"). Não serve nada além do XML
+  // dono é aparecer no Google pelo nome do ateliê, `MARCA.nome`, e Pirenópolis — o nome mudou em
+  // 30/10/2026). Não serve nada além do XML
   // do sitemap — sem sessão, sem banco, sem `await` de I/O (app/sitemap.ts).
   "app/sitemap.ts",
   "app/api/health/route.ts",

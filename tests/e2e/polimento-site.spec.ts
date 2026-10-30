@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type APIRequestContext } from "@playwright/test";
 
 import { FOTOS_DO_INSTAGRAM } from "@/conteudo/site";
 
@@ -94,22 +94,40 @@ test.describe("polimento site — instagram", () => {
 
 // D-29: o que o Google e o WhatsApp leem. Os endereços absolutos saem do `metadataBase` das duas
 // páginas (o domínio de produção), também quando o teste roda em localhost.
-test.describe("polimento site — metadados", () => {
-  const BASE = "https://amassacerrado.com.br";
+//
+// Quick 261030-n01 (30/10/2026): a origem é `urlDoSite()` — `NEXT_PUBLIC_SITE_URL` do build, com
+// `MARCA.url` de padrão. O processo do Playwright no CI NÃO recebe essa variável (só a imagem a
+// recebe, como build-arg, no entrega.yml), e o build local pode lê-la do `.env.local`: este arquivo
+// não tem como recalcular o domínio certo. Então ele prova que `metadataBase` e sitemap usam UMA
+// origem só — a lida do primeiro `<loc>` do sitemap — e o VALOR (variável × padrão) fica com
+// tests/unit/site-url.test.ts. Até 30/10 havia aqui uma constante com o domínio escrito à mão.
+async function origemDoSitemap(request: APIRequestContext): Promise<string> {
+  const resposta = await request.get("/sitemap.xml");
+  expect(resposta.status()).toBe(200);
+  const primeiroLoc = /<loc>([^<]+)<\/loc>/.exec(await resposta.text());
+  expect(primeiroLoc, "o sitemap não tem <loc>").not.toBeNull();
+  const origem = new URL(primeiroLoc![1]!).origin;
+  expect(origem).toMatch(/^https?:\/\/[^/]+$/);
+  return origem;
+}
 
-  for (const [caminho, absoluto] of [
-    ["/", `${BASE}/`],
-    ["/privacidade", `${BASE}/privacidade`],
+test.describe("polimento site — metadados", () => {
+  for (const [caminho, sufixo] of [
+    ["/", "/"],
+    ["/privacidade", "/privacidade"],
   ] as const) {
-    test(`${caminho}: canonical e og:url apontam para ${absoluto}; og:image é o recorte 1200×630`, async ({
+    test(`${caminho}: canonical e og:url apontam para a origem do sitemap + ${sufixo}; og:image é o recorte 1200×630`, async ({
       page,
       request,
     }) => {
+      const origem = await origemDoSitemap(request);
+      const absoluto = `${origem}${sufixo}`;
+
       await page.goto(caminho);
 
-      // Comparados depois de `new URL(...).href`: para a raiz, o Next escreve "https://amassacerrado.com.br",
-      // sem a barra final — a MESMA URL que "https://amassacerrado.com.br/" do sitemap (a forma
-      // normalizada de uma origem sempre leva a barra).
+      // Comparados depois de `new URL(...).href`: para a raiz, o Next escreve a origem sem a barra
+      // final — a MESMA URL que a origem com barra do sitemap (a forma normalizada de uma origem
+      // sempre leva a barra).
       const canonical = await page.locator('link[rel="canonical"]').getAttribute("href");
       const ogUrl = await page.locator('meta[property="og:url"]').getAttribute("content");
       expect(canonical).not.toBeNull();
@@ -118,7 +136,7 @@ test.describe("polimento site — metadados", () => {
       expect(new URL(ogUrl!).href).toBe(absoluto);
 
       const ogImage = await page.locator('meta[property="og:image"]').getAttribute("content");
-      expect(ogImage).toBe(`${BASE}/site/abertura-og.jpg`);
+      expect(ogImage).toBe(`${origem}/site/abertura-og.jpg`);
       await expect(page.locator('meta[property="og:image:width"]')).toHaveAttribute("content", "1200");
       await expect(page.locator('meta[property="og:image:height"]')).toHaveAttribute("content", "630");
 
@@ -149,12 +167,13 @@ test.describe("polimento site — metadados", () => {
   });
 
   test("/sitemap.xml lista a raiz e /privacidade, com lastmod", async ({ request }) => {
+    const origem = await origemDoSitemap(request);
     const resposta = await request.get("/sitemap.xml");
     expect(resposta.status()).toBe(200);
 
     const corpo = await resposta.text();
-    expect(corpo).toContain(`<loc>${BASE}/</loc>`);
-    expect(corpo).toContain(`<loc>${BASE}/privacidade</loc>`);
+    expect(corpo).toContain(`<loc>${origem}/</loc>`);
+    expect(corpo).toContain(`<loc>${origem}/privacidade</loc>`);
     expect(corpo.match(/<lastmod>/g)).toHaveLength(2);
     expect(corpo).not.toContain("gestao");
   });

@@ -12,8 +12,10 @@ import { OEspaco } from "@/components/site/o-espaco";
 import { OndeFica } from "@/components/site/onde-fica";
 import { PularParaOConteudo } from "@/components/site/pular-para-o-conteudo";
 import { Rodape } from "@/components/site/rodape";
+import { MARCA } from "@/conteudo/marca";
 import { SLOTS_DE_IMAGEM } from "@/conteudo/site";
 import { hojeEmBrasilia } from "@/lib/financeiro/formato";
+import { urlDoSite } from "@/lib/site/url";
 
 // D-15/T-04.6-14: renderização estática, EXPLÍCITA — é isto que faz a raiz sobreviver ao
 // Postgres cair (prova de fora: scripts/testar-site-sem-banco.mjs). Sem cookies(), sem headers(),
@@ -26,13 +28,13 @@ import { hojeEmBrasilia } from "@/lib/financeiro/formato";
 export const dynamic = "force-static";
 export const revalidate = 300;
 
-const TITULO_DO_SITE = "AMASSA CERRADO — ateliê de cerâmica, café e loja em Pirenópolis";
+const TITULO_DO_SITE = `${MARCA.nome} — ateliê de cerâmica, café e loja em Pirenópolis`;
 const DESCRICAO_DO_SITE =
   "Ateliê de cerâmica artesanal de alta temperatura em Pirenópolis: aulas, uso livre do espaço, café e encomendas. Abrimos em dezembro de 2026.";
 
 // SEO básico (SIT-08): a URL base abaixo resolve o Open Graph para caminho absoluto a partir de
-// um relativo (`/site/abertura.jpg`); o critério do dono é aparecer no Google para "amassa
-// cerrado pirenópolis" — `app/robots.ts` libera a raiz para isso, `app/sitemap.ts` (Tarefa 3)
+// um relativo (`/site/abertura.jpg`); o critério do dono é aparecer no Google pelo nome do
+// ateliê (`MARCA.nome`) e Pirenópolis (SIT-08; o nome mudou em 30/10/2026) — `app/robots.ts` libera a raiz para isso, `app/sitemap.ts` (Tarefa 3)
 // lista só ela (até 06/10/2026; desde o plano 06.5-21 lista também `/privacidade`). `width`/`height` são as dimensões REAIS do arquivo (conferidas com
 // `sharp(...).metadata()`, não inventadas); o `alt` vem de `SLOTS_DE_IMAGEM.abertura.alt` — uma
 // verdade, um lugar, nunca reescrita aqui.
@@ -46,7 +48,9 @@ const DESCRICAO_DO_SITE =
 export const metadata: Metadata = {
   title: TITULO_DO_SITE,
   description: DESCRICAO_DO_SITE,
-  metadataBase: new URL("https://amassacerrado.com.br"),
+  // Quick 261030-n01 (30/10/2026): a origem sai de `urlDoSite()` — `NEXT_PUBLIC_SITE_URL` do build,
+  // com `MARCA.url` de padrão. Até então era o domínio escrito à mão aqui.
+  metadataBase: new URL(urlDoSite()),
   alternates: { canonical: "/" },
   openGraph: {
     title: TITULO_DO_SITE,
