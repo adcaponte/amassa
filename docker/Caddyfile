@@ -1,10 +1,22 @@
 # HTTPS automático (Let's Encrypt), renovação sozinha — nenhuma configuração manual de TLS.
 # Serve o apex e redireciona o www para ele (D-04/D-05).
+#
+# Domínio novo desde a troca de nome para AMULETO ARTE E CAFÉ (Roteiro 25,
+# docs/operacao/25-troca-de-dominio.md). O domínio velho, amassacerrado.com.br, vira redirecionamento
+# permanente para o novo, preservando o caminho — links já compartilhados, o Google e o Instagram
+# antigo continuam chegando. Manter o registro dele por pelo menos um ano.
+#
+# Este arquivo NÃO é copiado pelo pipeline (o job `implantar` só ressincroniza o compose.yml) e o
+# Caddy não é reiniciado por ele: mudança aqui chega ao servidor à mão, pelo roteiro.
 
-amassacerrado.com.br {
+amuleto.art.br {
 	reverse_proxy app:3000
 }
 
-www.amassacerrado.com.br {
-	redir https://amassacerrado.com.br{uri} permanent
+www.amuleto.art.br {
+	redir https://amuleto.art.br{uri} permanent
+}
+
+amassacerrado.com.br, www.amassacerrado.com.br {
+	redir https://amuleto.art.br{uri} permanent
 }

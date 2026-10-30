@@ -568,14 +568,28 @@ jobs:
               docker compose up -d app
             '
 
+      # O domínio vem da mesma variável do repositório que o job `construir` embute na imagem
+      # (NEXT_PUBLIC_SITE_URL), e não de um endereço escrito aqui: trocar de domínio passa a ser
+      # trocar a variável (Roteiro 25). Este passo roda no runner do GitHub, não no servidor — a
+      # expressão é resolvida pelo Actions e entra no shell como variável de ambiente.
+      #
+      # Consequência para a virada: quando a variável muda, este curl já bate no domínio novo, e
+      # o Caddy do servidor precisa estar servindo esse domínio ANTES do push — o pipeline não
+      # copia o Caddyfile nem reinicia o Caddy (Roteiro 25, Passo 5).
       - name: Verificar /api/health pelo domínio
+        env:
+          SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
         run: |
+          if [ -z "$SITE_URL" ]; then
+            echo "::error::A variável NEXT_PUBLIC_SITE_URL do repositório está vazia — sem ela não há domínio para conferir."
+            exit 1
+          fi
           for tentativa in $(seq 1 10); do
-            if curl -sf https://amassacerrado.com.br/api/health > /dev/null; then
-              echo "Produção respondendo."
+            if curl -sf "${SITE_URL%/}/api/health" > /dev/null; then
+              echo "Produção respondendo em ${SITE_URL%/}."
               exit 0
             fi
             sleep 3
           done
-          echo "Produção não respondeu a tempo." >&2
+          echo "Produção não respondeu a tempo em ${SITE_URL%/}." >&2
           exit 1

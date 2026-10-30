@@ -52,7 +52,7 @@ services:
       # Padrão aqui, e não só no .env: este arquivo é ressincronizado pelo job `implantar`, o .env
       # não — uma variável que dependesse de edição à mão no servidor envelheceria em silêncio.
       # O .env ainda pode sobrescrever.
-      AUTH_URL: ${AUTH_URL:-https://amassacerrado.com.br}
+      AUTH_URL: ${AUTH_URL:-https://amuleto.art.br}
       # Caminho, DENTRO do contêiner, onde as fotos de orçamento moram (Fase 04.5, D-27) — lido
       # por `lib/orcamentos/caminho-fotos.ts`, sempre FORA de `/app` (a árvore que o Next serve
       # é só leitura; dado de cliente não mora junto do código). Valor padrão aqui, e não só no
