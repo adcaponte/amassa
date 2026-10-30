@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { luminanciaRelativa, razaoDeContraste } from "@/lib/acessibilidade/contraste";
 import { ORDEM_DAS_COLUNAS } from "@/lib/producao/etapas";
+import { urlDoSite } from "@/lib/site/url";
 
 // O briefing do site (BRIEFING-site.md §4) manda CONFERIR o contraste da faixa amarela, não
 // afirmá-lo — "a faixa amarela `--sol` com texto `--tinta` passa; conferir". Uma frase de plano
@@ -147,8 +148,8 @@ describe("app/sitemap.ts — MetadataRoute.Sitemap (SIT-08)", () => {
     const segunda = sitemap();
 
     expect(primeira.map((entrada) => entrada.url)).toEqual([
-      "https://amassacerrado.com.br/",
-      "https://amassacerrado.com.br/privacidade",
+      `${urlDoSite()}/`,
+      `${urlDoSite()}/privacidade`,
     ]);
     expect(primeira[0]?.priority).toBe(1);
     expect(primeira[1]?.priority).toBeLessThan(1);
