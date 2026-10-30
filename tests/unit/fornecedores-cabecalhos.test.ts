@@ -7,6 +7,15 @@ import {
   mesmaOrigem,
 } from "../../lib/fornecedores/cabecalhos";
 import { rotaDeGestao } from "../../lib/rotas/gestao";
+import { MARCA } from "@/conteudo/marca";
+
+// Quick 261030-n01 (30/10/2026): o host dos casos de mesma origem e dos referers sai da marca, sem
+// domínio escrito à mão. Até então eram os literais do domínio de hoje. As provas não mudam: o host
+// falso continua sendo o domínio com um sufixo de outro dono, e a de caixa continua com o host em
+// maiúsculas — só a base mudou.
+const DOMINIO = MARCA.dominio;
+const URL_DO_SITE = MARCA.url;
+const URL_EM_MAIUSCULAS = URL_DO_SITE.replace(DOMINIO, DOMINIO.toUpperCase());
 
 // Os cabeçalhos que vão para o navegador quando um anexo sai (06.2-06-PLAN.md, Tarefa 2; T-06.2-22,
 // injeção de cabeçalho; Pitfall 6, nome fora do ASCII; Pitfall 8, CSRF no PUT). Cada aresta numa
@@ -123,50 +132,52 @@ describe("cabecalhos dos anexos", () => {
 
   describe("Pitfall 8: mesmaOrigem decide o 403 do PUT", () => {
     it("sem Origin (requisição que não veio de um navegador) → aceita", () => {
-      expect(mesmaOrigem({ origin: null, host: "amassacerrado.com.br", forwardedHost: null })).toBe(true);
-      expect(mesmaOrigem({ origin: undefined, host: "amassacerrado.com.br", forwardedHost: null })).toBe(true);
-      expect(mesmaOrigem({ origin: "", host: "amassacerrado.com.br", forwardedHost: null })).toBe(true);
+      expect(mesmaOrigem({ origin: null, host: DOMINIO, forwardedHost: null })).toBe(true);
+      expect(mesmaOrigem({ origin: undefined, host: DOMINIO, forwardedHost: null })).toBe(true);
+      expect(mesmaOrigem({ origin: "", host: DOMINIO, forwardedHost: null })).toBe(true);
     });
 
     it("Origin do mesmo host → aceita (sem diferença de caixa)", () => {
       expect(
-        mesmaOrigem({ origin: "https://amassacerrado.com.br", host: "amassacerrado.com.br", forwardedHost: null }),
+        mesmaOrigem({ origin: URL_DO_SITE, host: DOMINIO, forwardedHost: null }),
       ).toBe(true);
       expect(
-        mesmaOrigem({ origin: "https://AmassaCerrado.com.br", host: "amassacerrado.com.br", forwardedHost: null }),
+        mesmaOrigem({ origin: URL_EM_MAIUSCULAS, host: DOMINIO, forwardedHost: null }),
       ).toBe(true);
+      // A variante de caixa tem de ser OUTRA string, senão a prova acima não prova nada.
+      expect(URL_EM_MAIUSCULAS).not.toBe(URL_DO_SITE);
       expect(mesmaOrigem({ origin: "http://localhost:3000", host: "localhost:3000", forwardedHost: null })).toBe(true);
     });
 
     it("Origin de outro host → recusa", () => {
       expect(
-        mesmaOrigem({ origin: "https://evil.example", host: "amassacerrado.com.br", forwardedHost: null }),
+        mesmaOrigem({ origin: "https://evil.example", host: DOMINIO, forwardedHost: null }),
       ).toBe(false);
       expect(
-        mesmaOrigem({ origin: "https://amassacerrado.com.br.evil.example", host: "amassacerrado.com.br", forwardedHost: null }),
+        mesmaOrigem({ origin: `${URL_DO_SITE}.evil.example`, host: DOMINIO, forwardedHost: null }),
       ).toBe(false);
       // Mesmo nome, outra porta: outro host.
       expect(mesmaOrigem({ origin: "http://localhost:4000", host: "localhost:3000", forwardedHost: null })).toBe(false);
     });
 
     it("Origin que não é URL (inclusive o literal null) → recusa", () => {
-      expect(mesmaOrigem({ origin: "null", host: "amassacerrado.com.br", forwardedHost: null })).toBe(false);
-      expect(mesmaOrigem({ origin: "não é url", host: "amassacerrado.com.br", forwardedHost: null })).toBe(false);
+      expect(mesmaOrigem({ origin: "null", host: DOMINIO, forwardedHost: null })).toBe(false);
+      expect(mesmaOrigem({ origin: "não é url", host: DOMINIO, forwardedHost: null })).toBe(false);
     });
 
     it("x-forwarded-host vence host (atrás do Caddy o host é o endereço interno)", () => {
       expect(
         mesmaOrigem({
-          origin: "https://amassacerrado.com.br",
+          origin: URL_DO_SITE,
           host: "0.0.0.0:3000",
-          forwardedHost: "amassacerrado.com.br",
+          forwardedHost: DOMINIO,
         }),
       ).toBe(true);
       expect(
         mesmaOrigem({
           origin: "http://0.0.0.0:3000",
           host: "0.0.0.0:3000",
-          forwardedHost: "amassacerrado.com.br",
+          forwardedHost: DOMINIO,
         }),
       ).toBe(false);
     });
@@ -174,22 +185,22 @@ describe("cabecalhos dos anexos", () => {
     it("com vários x-forwarded-host, vale o primeiro", () => {
       expect(
         mesmaOrigem({
-          origin: "https://amassacerrado.com.br",
+          origin: URL_DO_SITE,
           host: "app:3000",
-          forwardedHost: "amassacerrado.com.br, proxy.interno",
+          forwardedHost: `${DOMINIO}, proxy.interno`,
         }),
       ).toBe(true);
       expect(
         mesmaOrigem({
           origin: "https://proxy.interno",
           host: "app:3000",
-          forwardedHost: "amassacerrado.com.br, proxy.interno",
+          forwardedHost: `${DOMINIO}, proxy.interno`,
         }),
       ).toBe(false);
     });
 
     it("com Origin e sem host nenhum para comparar → recusa", () => {
-      expect(mesmaOrigem({ origin: "https://amassacerrado.com.br", host: null, forwardedHost: null })).toBe(false);
+      expect(mesmaOrigem({ origin: URL_DO_SITE, host: null, forwardedHost: null })).toBe(false);
     });
   });
 });
@@ -216,7 +227,7 @@ describe("destinoDoAvisoDeAnexo", () => {
       destinoDoAvisoDeAnexo({
         aviso: "anexo-nao-abriu",
         fornecedorId: U1,
-        referer: `https://amassacerrado.com.br/gestao/cadastros?sub=fornecedores&fornecedor=${U2}`,
+        referer: `${URL_DO_SITE}/gestao/cadastros?sub=fornecedores&fornecedor=${U2}`,
       }),
     ).toBe(`${PREFIXO}&fornecedor=${U1}&aviso=anexo-nao-abriu`);
   });
@@ -226,7 +237,7 @@ describe("destinoDoAvisoDeAnexo", () => {
       destinoDoAvisoDeAnexo({
         aviso: "anexo-nao-encontrado",
         fornecedorId: null,
-        referer: `https://amassacerrado.com.br/gestao/cadastros?sub=fornecedores&fornecedor=${U2}`,
+        referer: `${URL_DO_SITE}/gestao/cadastros?sub=fornecedores&fornecedor=${U2}`,
       }),
     ).toBe(`${PREFIXO}&fornecedor=${U2}&aviso=anexo-nao-encontrado`);
   });
@@ -237,9 +248,9 @@ describe("destinoDoAvisoDeAnexo", () => {
       null,
       "",
       "isto não é url",
-      "https://amassacerrado.com.br/gestao/cadastros?sub=fornecedores&fornecedor=abc",
-      `https://amassacerrado.com.br/gestao/financeiro?fornecedor=${U2}`,
-      `https://amassacerrado.com.br/gestao/cadastros?fornecedor=${U2}%26aviso%3Dx`,
+      `${URL_DO_SITE}/gestao/cadastros?sub=fornecedores&fornecedor=abc`,
+      `${URL_DO_SITE}/gestao/financeiro?fornecedor=${U2}`,
+      `${URL_DO_SITE}/gestao/cadastros?fornecedor=${U2}%26aviso%3Dx`,
     ]) {
       expect(
         destinoDoAvisoDeAnexo({ aviso: "anexo-nao-encontrado", fornecedorId: null, referer }),

@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { MARCA } from "@/conteudo/marca";
 import { CONTEUDO_SITE, MENSAGENS_DO_WHATSAPP, SLOTS_DE_IMAGEM } from "@/conteudo/site";
 
 // Fase 04.6 (D-15/D-17/D-18/D-20): o conteúdo do site inteiro mora num arquivo versionado,
@@ -29,6 +30,8 @@ describe("conteudo/site.ts — conteúdo do site público (D-15, D-17, D-18, D-2
       abertura: expect.any(String),
       instagramUsuario: expect.any(String),
       instagramUrl: expect.any(String),
+      // Quick 261030-n01 (30/10/2026): o e-mail de contato entrou, vindo de `MARCA.email`.
+      email: expect.any(String),
     });
     expect(CONTEUDO_SITE.rodape).toEqual({
       linha: expect.any(String),
@@ -99,10 +102,25 @@ describe("conteudo/site.ts — conteúdo do site público (D-15, D-17, D-18, D-2
     expect(conteudo).not.toContain("gestao");
   });
 
-  it("conteudo/site.ts não importa nada e não declara let/var", () => {
+  // Até 30/10/2026 a regra era "zero import". Desde o quick 261030-n01 o arquivo importa UMA coisa,
+  // `MARCA` de `./marca`: a marca (nome, Instagram, e-mail, WhatsApp) mora num arquivo próprio para
+  // ser uma fonte só, lida também pela gestão, pela folha da Produção e pelo PDF. `conteudo/marca.ts`
+  // é dado puro, sem import (tests/unit/marca-fonte-unica.test.ts), então a garantia de fundo — o
+  // conteúdo do site não alcança nada além de dado — continua.
+  it("conteudo/site.ts importa só MARCA de ./marca e não declara let/var", () => {
     const conteudo = readFileSync(join(process.cwd(), "conteudo/site.ts"), "utf-8");
-    expect(conteudo.match(/^import /m)).toBeNull();
+    expect(conteudo.match(/^import .*$/gm)?.map((linha) => linha.trim())).toEqual([
+      'import { MARCA } from "./marca";',
+    ]);
     expect(conteudo.match(/^\s*(let|var) /m)).toBeNull();
+  });
+
+  it("os contatos, o WhatsApp e o rodapé vêm de MARCA", () => {
+    expect(CONTEUDO_SITE.contato.instagramUsuario).toBe(MARCA.instagramUsuario);
+    expect(CONTEUDO_SITE.contato.instagramUrl).toBe(MARCA.instagramUrl);
+    expect(CONTEUDO_SITE.contato.email).toBe(MARCA.email);
+    expect(CONTEUDO_SITE.zap).toBe(MARCA.whatsapp);
+    expect(CONTEUDO_SITE.rodape.linha).toBe(`${MARCA.nome} · ${MARCA.cidade}`);
   });
 });
 
