@@ -2,9 +2,17 @@
 
 ## Project
 
-**AMASSA — Plataforma de Gestão do Ateliê**
+**AMULETO — Plataforma de Gestão do Ateliê** (codinome técnico: **amassa**)
 
-Plataforma web interna, privada e responsiva, para os gestores da **AMASSA CERRADO** — espaço de
+**Nome do negócio desde 30/10/2026: AMULETO ARTE E CAFÉ** (curto: AMULETO; domínio novo
+`amuleto.art.br`; Instagram `@amuletoartecafe`; e-mail `amuletoartecafe@gmail.com`). Todo texto visível lê de
+`conteudo/marca.ts` — nunca escreva o nome solto. **"amassa" é o codinome técnico do sistema:** papéis do
+banco, `/opt/amassa`, imagens, repositório, `components/amassa/`, chaves e rotas continuam com "amassa" e
+**não se renomeiam** (briefing `Claude outputs/amuleto/BRIEFING.md` §1). O domínio em uso continua
+`amassacerrado.com.br` até a virada do Passo 2 (Roteiro 25, branch `amuleto-passo-2`). *Até 30/10/2026 este
+título dizia "AMASSA — Plataforma de Gestão do Ateliê", e o parágrafo abaixo descreve o negócio pelo nome antigo.*
+
+Plataforma web interna, privada e responsiva, para os gestores da **AMASSA CERRADO** (hoje AMULETO) — espaço de
 cerâmica artesanal de alta temperatura em **Pirenópolis**, com loja física e café, inauguração em
 dezembro de 2026 — administrarem a operação do dia a dia em um único lugar, substituindo planilhas
 e controles espalhados. Módulos: Encomendas, Contador de Queima, Abertura do Espaço (temporário),
