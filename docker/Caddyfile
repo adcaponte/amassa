@@ -3,8 +3,11 @@
 #
 # Domínio novo desde a troca de nome para AMULETO ARTE E CAFÉ (Roteiro 25,
 # docs/operacao/25-troca-de-dominio.md). O domínio velho, amassacerrado.com.br, vira redirecionamento
-# permanente para o novo, preservando o caminho — links já compartilhados, o Google e o Instagram
+# temporário (302) para o novo, preservando o caminho — links já compartilhados, o Google e o Instagram
 # antigo continuam chegando. Manter o registro dele por pelo menos um ano.
+# Temporário de propósito na primeira semana (decisão do dono, 30/10/2026): se a virada precisar
+# voltar, o navegador não guardou nada. Passada a semana, os três `redir` ganham `permanent` (301)
+# pela Parte I do Roteiro 25.
 #
 # Este arquivo NÃO é copiado pelo pipeline (o job `implantar` só ressincroniza o compose.yml) e o
 # Caddy não é reiniciado por ele: mudança aqui chega ao servidor à mão, pelo roteiro.
@@ -14,9 +17,9 @@ amuleto.art.br {
 }
 
 www.amuleto.art.br {
-	redir https://amuleto.art.br{uri} permanent
+	redir https://amuleto.art.br{uri}
 }
 
 amassacerrado.com.br, www.amassacerrado.com.br {
-	redir https://amuleto.art.br{uri} permanent
+	redir https://amuleto.art.br{uri}
 }

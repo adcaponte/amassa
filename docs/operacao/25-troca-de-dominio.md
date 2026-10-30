@@ -3,7 +3,7 @@
 **Quando rodar:** **uma vez**, depois que o domínio novo já aponta para o servidor (Passo A1) e depois que o
 Passo 1 da troca de nome (o nome AMULETO no código) já estiver no `main`. Escrito em 30/10/2026 pelo Code, **sem
 ter sido rodado** — o domínio ainda não resolvia nesse dia. Se algum passo divergir do descrito, o erro pode ser do
-roteiro: **pare naquele passo** e não improvise.
+roteiro: **pare naquele passo** e não improvise. *Em 30/10, à noite, os dois nomes novos já resolviam para o IP do servidor no DNS do Google (`nslookup` do dono e do Code); no mesmo dia o dono escolheu `302` na primeira semana e `301` depois (Parte I).*
 
 **Sem migração, sem restauração.** O banco, o backup diário, as fotos e os anexos não mudam de lugar. O que muda são
 três coisas: o **Caddy** (que endereço ele serve), o **`.env` do servidor** (o endereço que o login usa) e a
@@ -172,7 +172,8 @@ git show main:docker/Caddyfile
 ```
 
 **O que você deve ver:** três blocos — `amuleto.art.br` com `reverse_proxy app:3000`; `www.amuleto.art.br` com
-`redir https://amuleto.art.br{uri} permanent`; e `amassacerrado.com.br, www.amassacerrado.com.br` com o mesmo `redir`.
+`redir https://amuleto.art.br{uri}`; e `amassacerrado.com.br, www.amassacerrado.com.br` com o mesmo `redir`.
+**Sem** a palavra `permanent` no fim: na primeira semana o redirecionamento é temporário de propósito (Parte I).
 
 ### Passo C4 — Copiar para o servidor, com outro nome
 
@@ -279,7 +280,7 @@ aparecer prova que o pedido chegou ao app pelo domínio novo.
 curl -sI https://www.amuleto.art.br
 ```
 
-**O que você deve ver:** **`301`** e `Location: https://amuleto.art.br/`.
+**O que você deve ver:** **`302`** e `Location: https://amuleto.art.br/`.
 
 ### Passo E3 — O domínio velho redireciona para o novo
 
@@ -287,7 +288,7 @@ curl -sI https://www.amuleto.art.br
 curl -sI https://amassacerrado.com.br
 ```
 
-**O que você deve ver:** **`301`** e **`Location: https://amuleto.art.br/`**.
+**O que você deve ver:** **`302`** e **`Location: https://amuleto.art.br/`**.
 
 ### Passo E4 — O caminho é preservado
 
@@ -295,7 +296,7 @@ curl -sI https://amassacerrado.com.br
 curl -sI https://www.amassacerrado.com.br/privacidade
 ```
 
-**O que você deve ver:** **`301`** e `Location: https://amuleto.art.br/privacidade`.
+**O que você deve ver:** **`302`** e `Location: https://amuleto.art.br/privacidade`.
 
 ### Passo E5 — Saúde no domínio novo
 
@@ -487,7 +488,10 @@ gh run watch
 
 **O que você deve ver:** pipeline verde, terminando em `Produção respondendo em https://amassacerrado.com.br.`
 
-**Cuidado com a volta depois de alguns dias:** o redirecionamento é **permanente** (`301`), e os navegadores
+**Na primeira semana a volta é limpa:** o redirecionamento é temporário (`302`), e o navegador não o guarda — quem
+abrir o endereço velho depois da volta cai no endereço velho. O cuidado abaixo só vale **depois da Parte I**.
+
+**Cuidado com a volta depois da Parte I:** o redirecionamento passa a ser **permanente** (`301`), e os navegadores
 guardam isso. Quem já foi redirecionado continua indo direto para `amuleto.art.br` mesmo depois da volta. Se você
 voltar com o domínio novo ainda apontando para o servidor, acrescente ao Caddyfile restaurado (antes do `restart`)
 um bloco que devolve essas pessoas:
@@ -504,11 +508,49 @@ amuleto.art.br, www.amuleto.art.br {
 
 ---
 
+## Parte I — Uma semana depois: o redirecionamento vira permanente
+
+**Por que esperar:** o `302` da primeira semana deixa a volta limpa (o navegador não guarda nada). O `301` é o que
+diz ao Google que o endereço mudou de vez — sem ele, a busca demora mais para trocar o endereço velho pelo novo.
+Decisão do dono em 30/10/2026: uma semana de `302`, depois `301`.
+
+**Quando rodar:** passada uma semana da Parte H, se nada precisou voltar. Peça ao Code: ele põe `permanent` no fim
+das duas linhas `redir` do `docker/Caddyfile`, valida e faz o commit. Depois, no seu computador:
+
+```bash
+git pull
+```
+
+```bash
+scp docker/Caddyfile theo@<IP_DO_SEU_VPS>:/opt/amassa/Caddyfile.novo
+```
+
+No servidor, em `/opt/amassa`, repita os Passos **D1 a D4** (validar, `mv`, `restart caddy`, conferir). Não precisa
+do D6: o app não muda.
+
+No seu computador:
+
+```bash
+curl -sI https://amassacerrado.com.br/privacidade
+```
+
+**O que você deve ver:** **`301`** e `Location: https://amuleto.art.br/privacidade`.
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" https://amuleto.art.br/api/health
+```
+
+**O que você deve ver:** **`200`**.
+
+Se o D1 der `Error`, nada mudou: pare e chame.
+
+---
+
 ## Depois da virada (fora do sistema)
 
 - **Instagram @amuletoartecafe:** pôr `amuleto.art.br` no link da bio.
 - **Monitor externo** (UptimeRobot ou o que você usa): trocar os dois monitores (`/api/health` e
-  `/api/health/backup`) para `https://amuleto.art.br`. Os antigos passam a receber `301`, e um monitor que não segue
+  `/api/health/backup`) para `https://amuleto.art.br`. Os antigos passam a receber `302` (e `301` depois da Parte I), e um monitor que não segue
   redirecionamento vai acusar falha.
 - **Google Cloud, app OAuth `amassa-backup`:** na tela de consentimento, trocar o link da política de privacidade
   para `https://amuleto.art.br/privacidade`. O endereço velho redireciona, então não tem pressa. **O nome do app e o
@@ -525,7 +567,7 @@ rm /opt/amassa/.env.antes-amuleto /opt/amassa/Caddyfile.antes-amuleto
 
 ## Por que cada mudança do repositório existe
 
-- **`docker/Caddyfile`:** o domínio novo serve o app; o `www` novo e os dois do domínio velho redirecionam com `301`
+- **`docker/Caddyfile`:** o domínio novo serve o app; o `www` novo e os dois do domínio velho redirecionam com `302` na primeira semana e `301` depois da Parte I,
   preservando o caminho (`{uri}`). Validado em 30/10 com `caddy validate` e `caddy adapt` na mesma imagem do
   `compose.yml` (`caddy:2-alpine`), com fim de linha LF e CRLF.
 - **`docker/compose.yml`:** o padrão de `AUTH_URL` passa a ser `https://amuleto.art.br`. O valor que vale é o do
