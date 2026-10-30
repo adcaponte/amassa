@@ -1,6 +1,9 @@
-# AMASSA — Plataforma de Gestão do Ateliê
+# AMULETO ARTE E CAFÉ — Plataforma de Gestão do Ateliê
 
-Plataforma web interna, privada e responsiva, para os gestores da **AMASSA CERRADO** — espaço de
+`amassa` é o codinome técnico do sistema — repositório, pastas, banco, contêineres, imagens e
+variáveis continuam com esse nome; o negócio se chamava AMASSA CERRADO até 30/10/2026.
+
+Plataforma web interna, privada e responsiva, para os gestores do **AMULETO ARTE E CAFÉ** — espaço de
 cerâmica artesanal de alta temperatura em **Pirenópolis**, com loja física e café, inauguração em
 dezembro de 2026 — administrarem a operação do dia a dia em um único lugar, substituindo planilhas
 e controles espalhados.
@@ -18,9 +21,11 @@ do usuário.
 Shopify) é de outras sócias e está **fora do escopo** deste repositório — sem redirecionamento, sem
 dado compartilhado.
 
-O domínio deste projeto é **`amassacerrado.com.br`**: a raiz é o **site público institucional** da
-AMASSA CERRADO (estático, continua no ar com o Postgres derrubado) e a plataforma responde em
-**`/gestao`**, sem link a partir do site.
+O domínio deste projeto ainda é **`amassacerrado.com.br`** (30/10/2026): a raiz é o **site público
+institucional** do ateliê (estático, continua no ar com o Postgres derrubado) e a plataforma
+responde em **`/gestao`**, sem link a partir do site. O domínio novo, **`amuleto.art.br`**, entra no
+Passo 2 da troca de nome, depois que o DNS dele responder. O nome e os contatos da marca moram em
+`conteudo/marca.ts`; a URL que o site anuncia sai de `NEXT_PUBLIC_SITE_URL` (`lib/site/url.ts`).
 
 *Até 11/10/2026 este README falava da AMASSA de Goiânia, de "cinco módulos" com a "Calculadora de
 Orçamento", de Next.js 15+, de `amassaceramica.com.br` como o site institucional e de um pipeline de

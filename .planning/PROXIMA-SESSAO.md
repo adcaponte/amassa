@@ -1,4 +1,15 @@
-# Próxima sessão — ATUALIZADO em 2026-10-11 (varredura de estado e README; nenhuma fase em execução; próximo à escolha do Theo: P1–P3, auditoria ou conteúdo do site)
+# Próxima sessão — ATUALIZADO em 2026-10-30 (Passo 1 da troca de nome — AMULETO ARTE E CAFÉ — feito no `main` local pela quick 261030-n01, NÃO publicado; o domínio muda no Passo 2, depois do DNS)
+
+*Até 30/10/2026 este título dizia: Próxima sessão — ATUALIZADO em 2026-10-11 (varredura de estado e README; nenhuma fase em execução; próximo à escolha do Theo: P1–P3, auditoria ou conteúdo do site)*
+
+> **🟡 ATUALIZAÇÃO DE 30/10/2026 — PASSO 1 DA TROCA DE NOME FEITO NO `main` LOCAL, NÃO PUBLICADO (quick `261030-n01`). Nenhuma migração, nenhuma mudança de infra.**
+> **O que mudou (pedido do Theo no chat, 30/10: "comece a alterar tudo que conseguir já"; briefing `Claude outputs/amuleto/BRIEFING.md`):** `conteudo/marca.ts` é a fonte única do nome (AMULETO ARTE E CAFÉ / AMULETO), do Instagram `@amuletoartecafe`, do e-mail `amuletoartecafe@gmail.com` e do WhatsApp (o mesmo número). Site, privacidade, gestão, folha da Produção e PDF do orçamento leem dela; a Logo voltou a ser texto (`MARCA.nomeCurto`, Archivo Narrow negrito) e entrou também na barra do site. A URL que o site anuncia (canonical, og, sitemap, o domínio citado na privacidade) sai de `urlDoSite()` — `NEXT_PUBLIC_SITE_URL` do build, com `MARCA.url` de padrão — então, publicado, o site passa a se chamar AMULETO no domínio antigo. Nenhum identificador interno mudou ("amassa" é o codinome técnico).
+> **O que o Theo faz:** (1) responder se o e-mail novo deve aparecer no site ("Onde fica" e a frase da LGPD da privacidade) — o site não mostrava e-mail nenhum antes; (2) publicar quando quiser — `git push` e pipeline verde; **sem migração e sem roteiro de servidor**; (3) avisar quando `nslookup amuleto.art.br` responder o IP do servidor, para o Passo 2.
+> **Como sei (30/10/2026):** `git fetch` + `git log origin/main..main` = só os commits do quick (`630c63c`, `86bc440`, `03dd65a`, `83c63a6` e o de docs); `git diff 8e44a97 --stat -- db/ docker/ .github/ docs/operacao/` vazio; `npm run verificar` exit 0 (3357 testes, `test:migracoes` verde); a única e2e, com `--grep` nos specs tocados, 206 passed, 5 skipped, 0 failed; `gh variable list`: `NEXT_PUBLIC_SITE_URL` = `https://amassacerrado.com.br`. Detalhe e classificação de cada ocorrência restante do nome antigo: `.planning/quick/261030-n01-nome-amuleto-passo-1/261030-n01-SUMMARY.md`.
+
+*Até 30/10/2026 o título acima dizia o que segue (preservado como registro):*
+
+## Próxima sessão — ATUALIZADO em 2026-10-11 (varredura de estado e README; nenhuma fase em execução; próximo à escolha do Theo: P1–P3, auditoria ou conteúdo do site)
 
 *Até 11/10/2026 este título dizia: Próxima sessão — ATUALIZADO em 2026-10-08 (~18h45 UTC: os três avisos da auditoria NO AR — run 37823880528; AVISO-01 do Financeiro decidido pelo Theo: fica como está)*
 

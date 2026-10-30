@@ -1,4 +1,8 @@
-# AMASSA — Plataforma de Gestão do Ateliê
+# AMULETO ARTE E CAFÉ — Plataforma de Gestão do Ateliê
+
+> *(até 30/10/2026: AMASSA CERRADO; `amassa` é o codinome técnico — repositório, pastas, banco,
+> contêineres, imagens e variáveis. Passo 1 da troca de nome no quick 261030-n01; o domínio muda no
+> Passo 2, depois do DNS de `amuleto.art.br`.)*
 
 > **Documentos fonte:** `amassa-plataforma/00-BRIEFING.md` (escopo e regras de negócio),
 > `01-ARQUITETURA.md` (stack e infraestrutura), `02-MODELO-DE-DADOS.md` (schema),
@@ -7,7 +11,8 @@
 
 ## What This Is
 
-Plataforma web interna, privada e responsiva, para os gestores da **AMASSA CERRADO** — espaço de
+Plataforma web interna, privada e responsiva, para os gestores do **AMULETO ARTE E CAFÉ** (até
+30/10/2026, AMASSA CERRADO) — espaço de
 cerâmica artesanal de alta temperatura em **Pirenópolis**, com loja física e café, inauguração em
 dezembro de 2026 — administrarem a operação do dia a dia em um único lugar, substituindo planilhas
 e controles espalhados. Módulos: Encomendas, Contador de Queima, Abertura do Espaço (temporário),
@@ -16,8 +21,9 @@ substitui a antiga Calculadora de Orçamento).
 
 **Não confundir os dois negócios.** A **AMASSA** de **Goiânia** (amassaceramica.com.br, com loja
 Shopify) é de outras sócias e está **fora do escopo** — sem redirecionamento, sem dado compartilhado.
-O domínio deste projeto é **amassacerrado.com.br**. A raiz é o **site público institucional** da
-AMASSA CERRADO e a plataforma responde em **`/gestao`**, sem link a partir do site — mudança feita
+O domínio deste projeto ainda é **amassacerrado.com.br** (30/10/2026; o novo, `amuleto.art.br`, entra
+no Passo 2 da troca de nome, depois do DNS). A raiz é o **site público institucional** do ateliê e a
+plataforma responde em **`/gestao`**, sem link a partir do site — mudança feita
 na Fase 04.6 e no ar desde 28/09/2026 (conferido de fora em 29/09: `/` devolve 200 com o site,
 `/gestao` devolve 307 para `/gestao/login`). *Até 28/09 esta frase dizia "mudança ainda não feita".*
 

@@ -37,7 +37,8 @@ mesma que `next/font/google` consome por baixo — o pacote `google/fonts` no Gi
 `fonts.gstatic.com` é servido, é o espelho oficial das fontes livres do Google, incluindo Inter e
 Archivo Narrow sob OFL). Só os pesos/estilos que o documento usa entraram — corpo em Inter
 (regular, negrito e o itálico da nota do rodapé — "Cada peça é feita à mão...", §Typography), título
-em Archivo Narrow (só negrito, o único peso que a folha A4 usa para "AMASSA CERRADO"). O itálico
+em Archivo Narrow (só negrito, o único peso que a folha A4 usa para o nome do ateliê em texto —
+`MARCA.nomeCurto`, de `conteudo/marca.ts`, desde 30/10/2026). O itálico
 foi acrescentado depois do primeiro `npm run test:e2e` desta fase: sem ele,
 `@react-pdf/renderer` lança "Could not resolve font for Inter, fontWeight 400, fontStyle italic"
 ao tentar desenhar o rodapé — erro real, não hipotético.
@@ -72,6 +73,7 @@ binário do `sharp`, 04.5-RESEARCH.md). **Plano 13 deve conferir, depois de um `
 
 A logo do documento (`assets/logo/amassa.png`, lida por `lib/orcamentos/pdf/logo.ts`) é um
 arquivo **trocável**, não versionado ainda — a arte da Andressa não chegou. Enquanto o arquivo não
-existir, o documento mostra "AMASSA CERRADO" em texto (Archivo Narrow). Quando a arte chegar,
-basta colocar o arquivo em `assets/logo/amassa.png` (ou apontar `CAMINHO_LOGO` para outro
-caminho) — nenhuma mudança de código é necessária.
+existir, o documento mostra `MARCA.nomeCurto` em texto (Archivo Narrow; até 30/10/2026 era o nome
+antigo por extenso). Quando a arte nova chegar, basta colocar o arquivo em `assets/logo/amassa.png`
+(o caminho é identificador e fica com o codinome) ou apontar `CAMINHO_LOGO` para outro caminho —
+nenhuma mudança de código é necessária.
