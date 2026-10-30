@@ -1,4 +1,8 @@
-// As frases da Produção (Fase 06.1), citadas da UI-SPEC (§Copywriting) — zero imports. Quem precisa
+import { MARCA } from "@/conteudo/marca";
+
+// As frases da Produção (Fase 06.1), citadas da UI-SPEC (§Copywriting) — zero imports até
+// 30/10/2026; desde o quick 261030-n01 o único import é a marca (`MARCA`, conteudo/marca.ts), dado
+// puro sem import nenhum, para o nome da folha ter uma fonte só. Quem precisa
 // do nome de uma etapa passa o rótulo já escrito (`rotuloDaEtapa`, em `etapas.ts`). Plural de
 // verdade: "1 dia", "2 dias" — nunca "dia(s)".
 
@@ -1091,7 +1095,7 @@ export const TEXTO_AVISO_IMPRESSAO_A4 =
   "Esta folha é para imprimir em A4 — no celular a prévia fica apertada, mas o papel sai certo.";
 
 // A marca das duas folhas.
-export const MARCA_DA_FOLHA = "AMASSA CERRADO";
+export const MARCA_DA_FOLHA = MARCA.nome;
 export const SUB_MARCA_DA_FOLHA = "ateliê · produção";
 
 // O rodapé das duas folhas (herdado, PRD-20), com a data do dia em que a folha foi impressa.

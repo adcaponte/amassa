@@ -2,6 +2,7 @@ import { BotaoWhatsapp } from "@/components/site/botao-whatsapp";
 import { Decoracao } from "@/components/site/decoracao";
 import { ImagemDoSite } from "@/components/site/imagem-do-site";
 import { Secao } from "@/components/site/secao";
+import { MARCA } from "@/conteudo/marca";
 import { CONTEUDO_SITE, SLOTS_DE_IMAGEM } from "@/conteudo/site";
 import { rotuloTelefoneDoZap } from "@/lib/site/whatsapp";
 
@@ -29,7 +30,8 @@ function CampoDeContato({ rotulo, children, testId }: CampoDeContatoProps) {
   );
 }
 
-// `#onde`: endereço, abertura, WhatsApp e Instagram — os pares de `CONTEUDO_SITE.contato`. O
+// `#onde`: endereço, abertura, WhatsApp, Instagram e e-mail (este desde 30/10/2026, quick
+// 261030-n01) — os pares de `CONTEUDO_SITE.contato`. O
 // telefone exibido é DERIVADO do `zap` (D-28, 06/10/2026): o mesmo número que o botão abre, nunca
 // um rótulo escrito à mão que possa divergir dele.
 export function OndeFica() {
@@ -37,6 +39,9 @@ export function OndeFica() {
   const telefone = rotuloTelefoneDoZap(CONTEUDO_SITE.zap);
   const whatsappPreenchido = telefone.length > 0;
   const instagramPreenchido = contato.instagramUsuario.trim().length > 0;
+  const emailPreenchido = contato.email.trim().length > 0;
+  // A busca do mapa pelo nome e pela cidade da marca, nunca com o nome escrito aqui.
+  const hrefDoMapa = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${MARCA.nome} ${MARCA.cidade}`)}`;
 
   return (
     <Secao
@@ -51,7 +56,7 @@ export function OndeFica() {
             {CONTEUDO_SITE.ondeTitulo}
           </h2>
 
-          {/* min-h-11 nos dois links de contato (WhatsApp, Instagram): SIT-10 exige 44px de
+          {/* min-h-11 nos três links de contato (WhatsApp, Instagram, e-mail): SIT-10 exige 44px de
               alvo de toque em TODO link de contato, não só nos botões — um link de texto sublinhado
               sem altura mínima mede a altura da linha (bem menos que 44px). */}
           <div data-testid="site-contato" className="mt-5 grid gap-3.5 text-[15.5px] text-site-tinta">
@@ -87,6 +92,16 @@ export function OndeFica() {
                 </a>
               </div>
             ) : null}
+            {emailPreenchido ? (
+              <div>
+                <b className="mb-0.5 block text-xs font-semibold tracking-[0.12em] text-site-tinta-fraca uppercase">
+                  E-mail
+                </b>
+                <a href={`mailto:${contato.email}`} className="inline-flex min-h-11 items-center text-site-barro underline">
+                  {contato.email}
+                </a>
+              </div>
+            ) : null}
           </div>
 
           <div className="mt-6 flex flex-wrap gap-2.5">
@@ -96,7 +111,7 @@ export function OndeFica() {
               className="flex min-h-11 items-center justify-center gap-2 rounded-full bg-site-cerrado px-[18px] text-[15px] font-semibold text-white"
             />
             <a
-              href="https://www.google.com/maps/search/?api=1&query=AMASSA+CERRADO+Piren%C3%B3polis"
+              href={hrefDoMapa}
               target="_blank"
               rel="noopener"
               className="flex min-h-11 items-center justify-center gap-2 rounded-full border-[1.5px] border-site-barro px-[18px] text-[15px] font-semibold text-site-barro"

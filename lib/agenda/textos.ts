@@ -280,7 +280,7 @@ export const FRASE_VAZIO_PESSOAS_TITULO = "Ninguém cadastrado ainda.";
 export const FRASE_VAZIO_PESSOAS_CORPO =
   "Cadastre a primeira pessoa — ela aparece também em Cadastros → Clientes.";
 export const DICA_PESSOAS =
-  "É o cadastro de clientes da AMASSA — o mesmo de Cadastros → Clientes. As vendas que a Agenda cria ficam ligadas à pessoa.";
+  "É o cadastro de clientes do ateliê — o mesmo de Cadastros → Clientes. As vendas que a Agenda cria ficam ligadas à pessoa.";
 
 // A ficha da pessoa (05-UI-SPEC.md §"Ficha da pessoa", §"Ficha da pessoa — linhas de leitura"). Os
 // quadros "A REPOR"/"A RECEBER" entram nos planos 08 e 11; as "Turmas fixas", no fim deste arquivo (07).

@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 import { FRASE_NO_AR } from "@/app/frase-no-ar";
+import { MARCA } from "@/conteudo/marca";
 
 // Cobre o caminho inteiro da autenticação (D1/D2/D3 do 02a-01-PLAN.md), /api/health e, desde a
 // Fase 04.6 (D-03/D-21), a fronteira entre a raiz pública e `/gestao` protegido. A conta usada
@@ -16,7 +17,7 @@ test.describe("fundação", () => {
 
     // A frase da Fase 1 (INFRA-02) precisa continuar visível sem sessão — agora em
     // `/gestao/login`, depois que a plataforma inteira desceu para o prefixo (Fase 04.6).
-    await expect(page.getByRole("heading", { name: "AMASSA" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: MARCA.nomeCurto })).toBeVisible();
     await expect(page.getByText(FRASE_NO_AR)).toBeVisible();
   });
 

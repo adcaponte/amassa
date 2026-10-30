@@ -1,5 +1,6 @@
 // A única porta para montar um link de WhatsApp no site público (D-17). O número é campo de
-// conteúdo — mora em `conteudo/site.ts` (`CONTEUDO_SITE.zap`), nunca aqui; trocá-lo é editar
+// conteúdo — mora em `conteudo/marca.ts` (`MARCA.whatsapp`, desde 30/10/2026; antes direto em
+// `conteudo/site.ts`) e chega aqui por `CONTEUDO_SITE.zap`, nunca escrito aqui; trocá-lo é editar
 // aquele arquivo, num lugar só. Módulo puro, zero import de valor: nenhum React, nenhum acesso
 // a banco — o mesmo padrão de `lib/precificacao/navegacao.ts`.
 //

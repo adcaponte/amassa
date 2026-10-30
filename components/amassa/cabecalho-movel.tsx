@@ -4,6 +4,7 @@ import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { CircleUserRound } from "lucide-react";
 
+import { MARCA } from "@/conteudo/marca";
 import { cn } from "@/lib/utils";
 import { NOME_ACESSIVEL_MENU_USUARIO } from "@/lib/acessibilidade/rotulos";
 import { ehItemAtivo, ITENS_NAVEGACAO_LATERAL } from "@/lib/navegacao/itens";
@@ -54,7 +55,7 @@ function derivarTituloDaTela(caminho: string): string | undefined {
 
 export function CabecalhoMovel({ nome, titulo, className }: CabecalhoMovelProps) {
   const pathname = usePathname();
-  const tituloExibido = titulo ?? derivarTituloDaTela(pathname) ?? "AMASSA";
+  const tituloExibido = titulo ?? derivarTituloDaTela(pathname) ?? MARCA.nomeCurto;
 
   // `Sheet` controlado (não mais uncontrolled): uma navegação por `<Link>` dentro dele é troca
   // de rota client-side — este cabeçalho não desmonta entre rotas, então o Sheet ficaria aberto

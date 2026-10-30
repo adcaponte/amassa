@@ -28,6 +28,10 @@ import { medirCaixa } from "./apoio/medir-caixa";
 // porquê), então a prova aqui mede TRÊS pontos reais e independentes — título de tela de
 // módulo, saudação do painel e título de um cartão do painel — para que ancorar em um só nunca
 // mais esconda uma regressão nos outros.
+//
+// Desde 30/10/2026 (quick 261030-n01) a `Logo` voltou a ser texto (`MARCA.nomeCurto` em Archivo
+// Narrow negrito, até a arte nova) e o heading do login se chama `MARCA.nomeCurto`. A prova de
+// Archivo Narrow continua nos três pontos acima, não na Logo.
 async function fazerLogin(page: Page) {
   await page.goto("/gestao/login");
   await page.getByLabel("E-mail").fill(process.env.E2E_EMAIL_TESTE ?? "");

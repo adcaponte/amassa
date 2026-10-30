@@ -265,6 +265,25 @@ test.describe("site secoes", () => {
     expect(textoDaPrivacidade).not.toContain("0000-0000");
   });
 
+  // Quick 261030-n01 (30/10/2026): o e-mail de contato entrou no site, e o Instagram é o da marca —
+  // os dois lidos de `MARCA`, nunca escritos aqui. O caso (k) continua provando que a frase da
+  // privacidade termina no WhatsApp; o e-mail entra antes dele.
+  test("(n) o contato mostra o e-mail e o Instagram da marca, em / e em /privacidade", async ({ page }) => {
+    await page.goto("/");
+    const contato = page.getByTestId("site-contato");
+    const linkDoEmail = contato.getByRole("link", { name: MARCA.email });
+    await expect(linkDoEmail).toHaveAttribute("href", `mailto:${MARCA.email}`);
+    const caixa = await medirCaixa(linkDoEmail, "link do e-mail");
+    expect(caixa.height, "o link do e-mail mede menos de 44px").toBeGreaterThanOrEqual(44);
+    await expect(contato.getByRole("link", { name: MARCA.instagramUsuario })).toHaveAttribute(
+      "href",
+      MARCA.instagramUrl,
+    );
+
+    await page.goto("/privacidade");
+    expect(await page.locator("body").innerText()).toContain(MARCA.email);
+  });
+
   // D-28 (Fase 06.5): a guarda de 01/12/2026 sobre o texto RENDERIZADO de / e /privacidade — o que a
   // pessoa lê, mais o título e as descrições do <head>. Antes de 01/12 `placeholdersNoAr` não acusa
   // nada (e o caso passa); a partir dela, um colchete ou um "0000-0000" no ar reprova a varredura.

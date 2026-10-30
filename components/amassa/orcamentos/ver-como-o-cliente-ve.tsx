@@ -11,6 +11,7 @@
 import { useSearchParams } from "next/navigation";
 
 import { irParaSemNavegar } from "@/components/amassa/abertura/url-sem-navegar";
+import { MARCA } from "@/conteudo/marca";
 import type { DocumentoDoCliente } from "@/lib/orcamentos/documento-cliente";
 import {
   ROTULO_COLUNA_CADA,
@@ -65,9 +66,8 @@ export function VerComoOClienteVe({ orcamentoId, documento }: VerComoOClienteVeP
             className="mx-auto flex max-w-[760px] flex-col bg-white p-[clamp(20px,6vw,56px)] text-[14.5px] leading-[1.55] text-[#1D2221] shadow-[0_2px_14px_rgba(0,0,0,.12)]"
           >
             <header className="mb-[18px] flex flex-wrap justify-between gap-4 border-b-2 border-[#894025] pb-[14px]">
-              <div className="text-[28px] font-semibold tracking-[0.02em] text-[#894025]">
-                AMASSA CERRADO
-              </div>
+              {/* A logo em texto, igual ao PDF sem arquivo de logo (quick 261030-n01, 30/10/2026). */}
+              <div className="text-[28px] font-semibold tracking-[0.02em] text-[#894025]">{MARCA.nomeCurto}</div>
               <div className="text-right">
                 <p className="font-bold">{documento.numeroCompleto}</p>
                 <p className="text-[13px] text-[#5A4C44]">

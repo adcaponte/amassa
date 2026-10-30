@@ -1,3 +1,5 @@
+import { MARCA } from "./marca";
+
 // O CONTEÚDO INTEIRO do site público, num arquivo só, versionado, zero import (D-15/D-17):
 // trocar um texto, o número do WhatsApp ou o placeholder de uma cor é editar este arquivo,
 // commit e deploy — nenhuma tabela nova, nenhuma leitura de banco na página pública.
@@ -9,6 +11,12 @@
 // com colchete, como o protótipo trazia; colchete e telefone "0000-0000" não vão mais ao ar, e a
 // partir de 01/12/2026 o teste `tests/unit/site-placeholder.test.ts` derruba o `verificar` se um
 // voltar a este arquivo.
+//
+// Quick 261030-n01 (30/10/2026): o "zero import" acima vale até essa data. Desde então o arquivo
+// importa UMA coisa, `MARCA` de `./marca` — o nome, o Instagram, o e-mail e o WhatsApp moram num
+// arquivo próprio para serem uma fonte só, lida também pela plataforma, pela folha da Produção e
+// pelo PDF. `conteudo/marca.ts` é dado puro e não importa nada, então este arquivo continua sem
+// alcançar nada além de dado.
 //
 // Nove trechos que no protótipo traziam marcação (`<b>`, `<span>`) viram ESTRUTURA aqui, nunca
 // string com HTML: guardar marcação em conteúdo obrigaria `dangerouslySetInnerHTML` na única
@@ -120,14 +128,16 @@ export const CONTEUDO_SITE = {
   contato: {
     endereco: "",
     abertura: "Abrimos em dezembro.",
-    instagramUsuario: "@amassacerrado",
-    instagramUrl: "https://instagram.com/amassacerrado",
+    instagramUsuario: MARCA.instagramUsuario,
+    instagramUrl: MARCA.instagramUrl,
+    // Quick 261030-n01 (30/10/2026): o e-mail de contato, exibido em "Onde fica" e na privacidade.
+    email: MARCA.email,
   },
 
   // Rodapé. 06/10/2026 (D-32, UI-D17): `quemSomos` é a parte já confirmada; `quemSomosTexto` é o
   // slot do texto do dono, que entra depois dela — vazio não renderiza.
   rodape: {
-    linha: "AMASSA CERRADO · Pirenópolis, GO",
+    linha: `${MARCA.nome} · ${MARCA.cidade}`,
     quemSomos: "Quem somos: Theo e Andressa.",
     quemSomosTexto: "",
   },
@@ -136,7 +146,9 @@ export const CONTEUDO_SITE = {
   // real do ateliê, dado pelo dono na Parte 0 da Fase 5 (02/10/2026). Até então era o placeholder
   // do protótipo, 5562900000000. Todo link do site (o botão geral e cada "Reservar pelo WhatsApp")
   // sai daqui; os testes leem esta constante, nunca um número escrito à mão.
-  zap: "5562994817661",
+  // Desde 30/10/2026 (quick 261030-n01) o número mora em `MARCA.whatsapp` (conteudo/marca.ts) e
+  // `zap` é o MESMO valor, lido de lá — os consumidores de `CONTEUDO_SITE.zap` não mudaram.
+  zap: MARCA.whatsapp,
 } as const;
 
 export type ConteudoDoSite = typeof CONTEUDO_SITE;
@@ -165,7 +177,7 @@ export function mensagemDeReserva(nome: string, quando: string): string {
 export const SLOTS_DE_IMAGEM = {
   abertura: {
     arquivo: "abertura.jpg",
-    alt: "Peças de cerâmica em exposição no ateliê AMASSA CERRADO.",
+    alt: `Peças de cerâmica em exposição no ateliê ${MARCA.nome}.`,
   },
   cafe: {
     arquivo: "cafe.jpg",
@@ -185,7 +197,7 @@ export const SLOTS_DE_IMAGEM = {
   },
   fachada: {
     arquivo: null,
-    alt: "Fachada do ateliê AMASSA CERRADO.",
+    alt: `Fachada do ateliê ${MARCA.nome}.`,
   },
   mapa: {
     arquivo: null,

@@ -1,5 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 
+import { MARCA } from "@/conteudo/marca";
+
 import {
   definirAMaisNoBanco,
   diaEmBrasilia,
@@ -92,7 +94,10 @@ test.describe("producao folha da ordem", () => {
     await expect(page.getByTestId("folha-ordem-material")).toContainText("Argila: 2,7 kg");
     await expect(page.getByTestId("folha-ordem-no-fim")).toContainText("Extras boas:");
     await expect(page.getByTestId("folha-rodape")).toHaveText(
-      /^AMASSA CERRADO · folha impressa em \d{2}\/\d{2}\/\d{4} · o que vale é o que está na plataforma$/,
+      // Quick 261030-n01 (30/10/2026): o nome sai de `MARCA.nome`, escapado para a expressão.
+      new RegExp(
+        `^${MARCA.nome.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} · folha impressa em \\d{2}/\\d{2}/\\d{4} · o que vale é o que está na plataforma$`,
+      ),
     );
 
     // Folha de bancada: nenhum dinheiro — nem na folha, nem na página inteira.

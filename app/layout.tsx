@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 
+import { MARCA } from "@/conteudo/marca";
+
 import "./globals.css";
 
 // D-10: Archivo Narrow (títulos) e Inter (corpo); D-14/D-19 (Fase 04.6): Fraunces é a fonte de
@@ -168,9 +170,12 @@ const classesDeFonte = [
 // lê. O SEO completo (Open Graph, sitemap) é do plano 04 desta fase; aqui só se fecha o
 // vazamento de informação que a versão antiga tinha (T-04.6-02: "Plataforma de gestão" contava
 // a existência de um sistema interno para qualquer motor de busca).
+//
+// Quick 261030-n01 (30/10/2026): título e descrição saem de `MARCA` (conteudo/marca.ts). Até então
+// eram o nome antigo e "Cerâmica artesanal de alta temperatura em Pirenópolis.".
 export const metadata: Metadata = {
-  title: "AMASSA CERRADO",
-  description: "Cerâmica artesanal de alta temperatura em Pirenópolis.",
+  title: MARCA.nome,
+  description: MARCA.descricao,
 };
 
 export default function RootLayout({

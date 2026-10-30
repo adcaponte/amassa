@@ -18,6 +18,7 @@
 // try/catch de `AgendaPublica` cai no mesmo estado).
 
 import { execFileSync, execSync, spawn } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { setTimeout as esperar } from "node:timers/promises";
 
 const NOME_CONTAINER = "amassa_postgres_teste_sem_banco";
@@ -27,8 +28,21 @@ const SENHA = "efemero_de_teste_sem_valor_real";
 const BANCO = "amassa_teste";
 const BANCO_DE_PRODUCAO = "amassa";
 const PORTA_APP = 3100;
-const TITULO_DO_SITE = "AMASSA CERRADO";
+// Quick 261030-n01 (30/10/2026): o nome do site é lido de `conteudo/marca.ts` — a fonte única da
+// marca —, nunca escrito aqui. O script é .mjs e não importa .ts, então lê o arquivo como texto.
+const TITULO_DO_SITE = lerNomeDaMarca();
 const FRASE_SEM_AGENDA = "O calendário com as datas e vagas entra aqui em breve.";
+
+function lerNomeDaMarca() {
+  const fonte = readFileSync(new URL("../conteudo/marca.ts", import.meta.url), "utf-8");
+  const casou = /\bnome:\s*"([^"]+)"/.exec(fonte);
+  if (!casou) {
+    throw new Error(
+      'Não achei o campo nome: "..." em conteudo/marca.ts — confira se o objeto MARCA ainda tem nome como string literal entre aspas duplas.',
+    );
+  }
+  return casou[1];
+}
 
 function afirmar(condicao, mensagem) {
   if (!condicao) {

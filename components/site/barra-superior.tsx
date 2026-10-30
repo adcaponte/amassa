@@ -6,6 +6,13 @@
 //
 // Toda âncora aqui é um `<a href="#...">` sem manipulador de clique: a rolagem é do navegador,
 // funciona sem JavaScript e sobrevive a erro de hidratação — requisito, não estilo (SIT-05).
+//
+// Quick 261030-n01 (30/10/2026): a marca é o `Logo` da plataforma (`MARCA.nomeCurto` em Archivo
+// Narrow negrito), o MESMO componente da barra lateral, do login e da folha da Produção — quando a
+// arte nova chegar, ela entra num lugar só (components/amassa/logo.tsx). Até então era o nome por
+// extenso em Fraunces, escrito aqui.
+import { Logo } from "@/components/amassa/logo";
+
 const LINKS_DE_SECAO = [
   { href: "#espaco", rotulo: "O espaço" },
   { href: "#agenda", rotulo: "Aulas e oficinas" },
@@ -25,7 +32,7 @@ export function BarraSuperior() {
           className="flex min-h-11 items-center gap-2.5 font-titulo-site text-[15px] font-bold whitespace-nowrap text-site-tinta md:text-lg"
         >
           <span aria-hidden="true" className="inline-block h-[34px] w-[34px] shrink-0 rounded-full bg-site-barro" />
-          AMASSA CERRADO
+          <Logo className="text-site-tinta" />
         </a>
 
         {/* Os quatro links de seção só entram a partir de 880px, não de 768px (`md`). Em 768px a

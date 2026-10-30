@@ -1,5 +1,7 @@
 import { test, expect, type APIResponse, type Page } from "@playwright/test";
 
+import { MARCA } from "@/conteudo/marca";
+
 // Fase 04.6, plano 01 (Tarefa 3) — a prova de ponta a ponta da mudança mais arriscada da fase: a
 // plataforma inteira desceu para `/gestao`, o proxy passou a proteger só esse prefixo, os 13
 // endereços antigos redirecionam, e os dois 404 têm públicos diferentes. Nenhum caso aqui cria
@@ -126,7 +128,7 @@ test.describe("rotas /gestao", () => {
     expect(resposta.status()).toBe(200);
 
     await page.goto("/gestao/login");
-    await expect(page.getByRole("heading", { name: "AMASSA" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: MARCA.nomeCurto })).toBeVisible();
     await expect(page.getByTestId("quatro-cento-e-quatro-gestao")).toHaveCount(0);
   });
 

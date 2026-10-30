@@ -50,7 +50,7 @@ export function corDaEtapa(etapa: EtapaProducao): CSSProperties {
   return { "--c": `var(--color-${etapa})` } as CSSProperties;
 }
 
-// A marca: o `Logo` da plataforma + "AMASSA CERRADO" e "ateliê · produção".
+// A marca: o `Logo` da plataforma + `MARCA_DA_FOLHA` e "ateliê · produção".
 export function MarcaDaFolha() {
   return (
     <div className={estilos.marca}>

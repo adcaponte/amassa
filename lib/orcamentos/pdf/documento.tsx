@@ -14,6 +14,7 @@
 // `@react-pdf/renderer` decide onde cortar, este componente nunca calcula posição/altura à mão.
 import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 
+import { MARCA } from "@/conteudo/marca";
 import type { DocumentoDoCliente } from "@/lib/orcamentos/documento-cliente";
 import {
   ROTULO_COLUNA_CADA,
@@ -147,7 +148,8 @@ export function DocumentoOrcamentoPdf({
             // eslint-disable-next-line jsx-a11y/alt-text -- Image do @react-pdf/renderer (não do DOM): sem prop `alt` no tipo, PDF não tem árvore de acessibilidade de tela.
             <Image src={logo} style={estilos.logo} />
           ) : (
-            <Text style={estilos.nomeDoAtelie}>AMASSA CERRADO</Text>
+            // Sem arquivo de logo, o lugar dela é a logo em texto (quick 261030-n01, 30/10/2026).
+            <Text style={estilos.nomeDoAtelie}>{MARCA.nomeCurto}</Text>
           )}
           <View style={estilos.cabecalhoDireita}>
             <Text style={estilos.numero}>{documento.numeroCompleto}</Text>

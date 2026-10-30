@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 
+import { MARCA } from "@/conteudo/marca";
 import { CONTEUDO_SITE } from "@/conteudo/site";
 
 import { medirCaixa } from "./apoio/medir-caixa";
@@ -25,7 +26,7 @@ test.describe("site abertura", () => {
     await page.goto("/");
 
     expect(page.url()).not.toContain("/gestao");
-    await expect(page).toHaveTitle(/AMASSA CERRADO/);
+    expect(await page.title()).toContain(MARCA.nome);
     await expect(page.getByTestId("site-abertura")).toBeVisible();
   });
 
@@ -113,7 +114,7 @@ test.describe("site abertura", () => {
     // não existisse, porque a página já carrega em y=0.
     await page.mouse.wheel(0, 800);
 
-    await page.getByRole("link", { name: "AMASSA CERRADO" }).first().click();
+    await page.getByRole("link", { name: MARCA.nomeCurto, exact: true }).first().click();
 
     const alturaDaBarra = await page.evaluate(() =>
       parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--altura-barra-site")),
